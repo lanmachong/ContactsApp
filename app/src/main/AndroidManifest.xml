@@ -5,22 +5,27 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
 
-    <!-- 短信备份：读 + 删（删短信在 4.4+ 需要成为默认短信应用） -->
+    <!--
+      短信备份：只申请「读」。
+      WRITE_SMS 是 signature 级权限，普通应用运行时申请不到，
+      但一旦成为默认短信应用，系统会自动授予，所以这里必须声明。
+    -->
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.WRITE_SMS" />
 
-    <!-- 通话记录备份：读 + 删（WRITE_CALL_LOG 为 signature 权限，系统大概率拒绝） -->
+    <!--
+      通话记录：只申请「读」。
+      WRITE_CALL_LOG 是 signature|privileged 权限，普通应用永远拿不到，
+      声明它只会在系统的应用权限列表里多出一条吓人的条目，没有实际作用，故不声明。
+    -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
 
     <!-- 4. 来电识别悬浮窗：来电状态 + 悬浮窗 + 前台服务 + 通知 -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- 3. 点击拨号跳转：ACTION_DIAL 无需权限，仅需在 Android 11+ 声明可见性 -->
     <queries>

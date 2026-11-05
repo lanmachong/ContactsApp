@@ -1,9 +1,6 @@
 package com.wb.contacts.ui
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -75,6 +72,10 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
     ) { tick++ }
 
     val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { tick++ }
+
+    val phoneStateLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { tick++ }
 
@@ -214,12 +215,7 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
                 subtitle = "挂断后自动撤掉悬浮窗",
                 granted = PermissionUtil.canReadPhoneState(context),
                 onRequest = {
-                    overlayLauncher.launch(
-                        Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:${context.packageName}")
-                        )
-                    )
+                    phoneStateLauncher.launch(android.Manifest.permission.READ_PHONE_STATE)
                 }
             )
 

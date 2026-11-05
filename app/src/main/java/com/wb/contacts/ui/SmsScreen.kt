@@ -58,9 +58,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** WRITE_SMS 不在公开 SDK 中（signature 级权限），只能用字面量 */
-private const val PERM_WRITE_SMS = "android.permission.WRITE_SMS"
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SmsScreen(vm: ContactsViewModel) {
@@ -87,14 +84,45 @@ fun SmsScreen(vm: ContactsViewModel) {
     }
 
     val canRead = remember(tick) { PermissionUtil.canReadSms(context) }
+    // 有写权限 == 已经是默认短信应用（系统会在授予角色时自动下发 WRITE_SMS）
     val canWrite = remember(tick) { PermissionUtil.canWriteSms(context) }
-    val isDefaultSms = remember(tick) { PermissionUtil.isDefaultSmsApp(context) }
 
     val defaultSmsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
         tick++
         vm.loadSms()
+        // 回到应用后复查角色状态：授予了就直接继续清空，没授予就说明用户跳过了
+        if (!PermissionUtil.isDefaultSmsApp(context)) {
+            vm.notify("还没有设为默认短信应用，暂时无法清空系统短信")
+        }
+    }
+
+    /**
+     * 跳到系统界面把本应用设为默认短信应用。
+     *
+     * 这里的坑：Android 10+ 的角色请求要求应用在清单里声明完整的短信组件
+     * （短信接收器、WAP Push 接收器、撰写 activity、回复 service），
+     * 本应用是通讯录备份工具，没有这些组件，角色请求对话框可能直接不出现。
+     * 所以这里做了三级兜底：角色请求 → 系统默认应用页 → 应用详情页，
+     * 保证任何机型都能把用户带到能改设置的地方。
+     */
+    fun requestDefaultSmsApp() {
+        val roleIntent = PermissionUtil.defaultSmsAppIntent(context)
+        val fallback = PermissionUtil.defaultAppsSettingsIntent(context)
+
+        val target = when {
+            roleIntent != null && PermissionUtil.canResolve(context, roleIntent) -> roleIntent
+            fallback != null -> fallback
+            else -> PermissionUtil.appDetailsIntent(context)
+        }
+
+        runCatching { defaultSmsLauncher.launch(target) }
+            .onFailure {
+                // 连兜底都启动不了，就直接把应用详情页给出去
+                runCatching { defaultSmsLauncher.launch(PermissionUtil.appDetailsIntent(context)) }
+                    .onFailure { vm.notify("无法打开系统设置，请手动到「设置 - 应用 - 默认应用」中修改") }
+            }
     }
 
     Scaffold(
@@ -155,13 +183,10 @@ fun SmsScreen(vm: ContactsViewModel) {
                 if (!canRead) {
                     Button(
                         onClick = {
+                            // 只申请 READ_SMS。WRITE_SMS 是 signature 级权限，
+                            // 普通应用申请不到，写权限通过「设为默认短信应用」获得。
                             permissionLauncher.launch(
-                                arrayOf(
-                                    android.Manifest.permission.READ_SMS,
-                                    // WRITE_SMS 是 signature 级权限，不在公开 SDK 里，
-                                    // 普通应用申请不到；写权限通过「设为默认短信应用」获得。
-                                    PERM_WRITE_SMS
-                                )
+                                arrayOf(android.Manifest.permission.READ_SMS)
                             )
                         },
                         modifier = Modifier.weight(1f)
@@ -205,30 +230,34 @@ fun SmsScreen(vm: ContactsViewModel) {
 
             ActionRow(
                 title = "导出到系统短信",
-                desc = "把本应用里的短信写回手机短信应用，按内容+时间去重",
-                enabled = canWrite && vm.smsMessages.isNotEmpty() && !vm.busy,
-                onClick = { vm.exportSmsToSystem() }
+                desc = if (canWrite) {
+                    "把本应用里的短信写回手机短信应用，按内容+时间去重"
+                } else {
+                    "需要先设为默认短信应用，点击前往系统设置"
+                },
+                enabled = vm.smsMessages.isNotEmpty() && !vm.busy,
+                onClick = {
+                    if (canWrite) {
+                        vm.exportSmsToSystem()
+                    } else {
+                        requestDefaultSmsApp()
+                    }
+                }
             )
             ActionRow(
                 title = "清空系统短信",
-                desc = if (isDefaultSms) {
+                desc = if (canWrite) {
                     "删除手机短信应用里的全部短信，本应用的加密副本保留"
                 } else {
-                    "需要先把本应用设为默认短信应用（Android 4.4 起的系统限制）"
+                    "需要先设为默认短信应用，点击前往系统设置"
                 },
-                enabled = canWrite && !vm.busy,
+                enabled = !vm.busy,
                 danger = true,
                 onClick = {
-                    if (isDefaultSms) {
+                    if (canWrite) {
                         vm.requestWipeSms()
                     } else {
-                        val intent = PermissionUtil.defaultSmsAppIntent(context)
-                        if (intent != null) {
-                            runCatching { defaultSmsLauncher.launch(intent) }
-                                .onFailure { vm.notify("无法打开默认短信应用设置") }
-                        } else {
-                            vm.notify("本机不支持切换默认短信应用")
-                        }
+                        requestDefaultSmsApp()
                     }
                 }
             )

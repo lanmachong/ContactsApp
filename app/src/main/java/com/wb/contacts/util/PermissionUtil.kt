@@ -52,17 +52,53 @@ object PermissionUtil {
         }.getOrDefault(false)
     }
 
-    /** 申请成为默认短信应用 */
+    /**
+     * 跳转到「设为默认短信应用」的界面。
+     *
+     * 返回 null 表示本机找不到任何可用的入口，调用方应如实提示用户手动去系统设置里改。
+     *
+     * Android 10 起走 RoleManager；9 及以下走 ACTION_CHANGE_DEFAULT；
+     * 两者都可能因为机型定制而失效，所以再兜底一层「应用详情页」，
+     * 让用户至少能进到系统设置里找到默认短信应用这一项。
+     */
     fun defaultSmsAppIntent(context: Context): Intent? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val manager = context.getSystemService(RoleManager::class.java) ?: return null
-            if (!manager.isRoleAvailable(RoleManager.ROLE_SMS)) return null
-            return manager.createRequestRoleIntent(RoleManager.ROLE_SMS)
+            val roleIntent = runCatching {
+                val manager = context.getSystemService(RoleManager::class.java)
+                    ?: return@runCatching null
+                if (!manager.isRoleAvailable(RoleManager.ROLE_SMS)) return@runCatching null
+                manager.createRequestRoleIntent(RoleManager.ROLE_SMS)
+            }.getOrNull()
+            if (roleIntent != null) return roleIntent
+        } else {
+            val legacy = Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT).apply {
+                putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME, context.packageName)
+            }
+            if (canResolve(context, legacy)) return legacy
         }
-        return Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT).apply {
-            putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME, context.packageName)
-        }
+
+        // 兜底：进应用详情页，用户可在系统里手动切换默认短信应用
+        return appDetailsIntent(context)
     }
+
+    /** 应用详情页，任何机型都能打开 */
+    fun appDetailsIntent(context: Context): Intent =
+        Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            android.net.Uri.parse("package:${context.packageName}")
+        )
+
+    /** 系统「默认应用」设置页，Android 7.0+ 都有 */
+    fun defaultAppsSettingsIntent(context: Context): Intent? {
+        val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+        return if (canResolve(context, intent)) intent else null
+    }
+
+    /** 这个 Intent 在当前设备上有没有应用能接住 */
+    fun canResolve(context: Context, intent: Intent): Boolean =
+        runCatching {
+            context.packageManager.queryIntentActivities(intent, 0).isNotEmpty()
+        }.getOrDefault(false)
 
     /** 读通话记录 */
     fun canReadCallLog(context: Context): Boolean =
@@ -70,8 +106,10 @@ object PermissionUtil {
 
     /**
      * 写 / 删通话记录。
+     *
      * WRITE_CALL_LOG 是 signature|privileged 权限，普通应用拿不到，
-     * 这里的判断只用于如实告知用户「系统不会让你删」，而不是假装能删。
+     * 而且清单里声明它也换不来权限，只会在系统的应用权限列表里多一条吓人条目，
+     * 所以本应用干脆不声明它。系统会拒绝删除，这里如实告知用户。
      */
     fun canWriteCallLog(context: Context): Boolean =
         has(context, Manifest.permission.WRITE_CALL_LOG)

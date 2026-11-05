@@ -129,11 +129,9 @@ fun ImportScreen(vm: ContactsViewModel) {
                 if (!canRead) {
                     Button(
                         onClick = {
+                            // 导入只需要读权限；写权限等到导出/清理时再单独申请
                             permissionLauncher.launch(
-                                arrayOf(
-                                    android.Manifest.permission.READ_CONTACTS,
-                                    android.Manifest.permission.WRITE_CONTACTS
-                                )
+                                arrayOf(android.Manifest.permission.READ_CONTACTS)
                             )
                         },
                         modifier = Modifier.weight(1f)

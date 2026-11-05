@@ -160,6 +160,29 @@ fun AboutScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(20.dp))
 
             Text(
+                "权限说明",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "每个权限都是对应功能必需，且在你点进那个功能时才申请，不会在启动时一次性索要：\n\n" +
+                    "· 通讯录（读）—— 把系统通讯录导入加密库\n" +
+                    "· 通讯录（写）—— 把加密库导回系统、清空系统通讯录时才需要\n" +
+                    "· 短信（读）—— 把系统短信导入加密库\n" +
+                    "· 短信（写）—— 系统规定只有「默认短信应用」才能删短信，" +
+                    "所以点清空时若未设置，会直接带你到系统设置页\n" +
+                    "· 通话记录（读）—— 把系统通话记录导入加密库\n" +
+                    "· 通话状态 —— 挂断后自动撤掉来电悬浮窗\n" +
+                    "· 悬浮窗 / 通知 —— 显示来电识别卡片与常驻通知\n\n" +
+                    "没有网络权限，没有位置、相机、麦克风、存储权限。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            Text(
                 "开发者",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold

@@ -141,11 +141,10 @@ fun CallLogScreen(vm: ContactsViewModel) {
                 if (!canRead) {
                     Button(
                         onClick = {
+                            // 只申请 READ_CALL_LOG。WRITE_CALL_LOG 是 signature|privileged 权限，
+                            // 普通应用永远拿不到，申请了也没有意义。
                             permissionLauncher.launch(
-                                arrayOf(
-                                    android.Manifest.permission.READ_CALL_LOG,
-                                    android.Manifest.permission.WRITE_CALL_LOG
-                                )
+                                arrayOf(android.Manifest.permission.READ_CALL_LOG)
                             )
                         },
                         modifier = Modifier.weight(1f)
