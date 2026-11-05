@@ -94,11 +94,12 @@ object PermissionUtil {
     /**
      * 「设为默认短信应用」的最佳跳转目标。
      *
-     * Android 10+ 的角色请求对话框要求应用在清单里声明完整的短信组件
-     * （短信接收器、WAP Push 接收器、撰写 activity、回复 service），
-     * 本应用是通讯录备份工具，没有这些组件，对话框可能直接不出现。
-     * 所以这里做了三级兜底：角色请求 → 系统默认应用页 → 应用详情页，
-     * 保证任何机型都能把用户带到能改设置的地方。
+     * Android 10+ 的角色请求对话框要求应用在清单里声明完整的短信组件，
+     * 而且声明细节要和系统查询条件完全一致（彩信接收器的 mimeType、
+     * 回复服务与撰写界面的 smsto scheme），缺一项系统设置里就不把本应用列为候选。
+     * 这里仍做三级兜底：角色请求 → 系统默认应用页 → 应用详情页，
+     * 因为部分厂商 ROM 会改写或屏蔽角色请求入口，保证任何机型都能把用户
+     * 带到能改设置的地方。
      */
     fun defaultSmsAppTargetIntent(context: Context): Intent? {
         val roleIntent = defaultSmsAppIntent(context)

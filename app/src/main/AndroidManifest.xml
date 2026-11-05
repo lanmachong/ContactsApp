@@ -13,9 +13,15 @@
       非 null 的 Uri，但短信根本不会出现在短信应用里。所以本应用要申请
       默认短信应用身份，才能把加密库里的短信真正还原回系统。
 
-      下面四个组件是拿这个身份的必要条件：Android 10+ 的角色请求会检查
-      清单里是否声明了完整的短信组件，缺一个，系统设置里就不会把本应用
-      列进「默认短信应用」的候选，身份也就永远拿不到。
+      下面四个组件是拿这个身份的必要条件，而且**声明的细节也必须和系统查的一模一样**：
+      AOSP 的 SmsApplication.getApplicationCollection() 会用
+      · SMS_DELIVER + BROADCAST_SMS 查短信接收器
+      · WAP_PUSH_DELIVER + 彩信 mimeType + BROADCAST_WAP_PUSH 查彩信接收器
+      · RESPOND_VIA_MESSAGE + smsto: 查快速回复服务
+      · ACTION_SENDTO + smsto: 查撰写界面
+      四项全查到，SmsApplicationData.isComplete() 才为 true，系统才会把本应用
+      列进「默认短信应用」候选。少一项（哪怕只是漏个 mimeType 或 scheme），
+      列表里就根本不会出现本应用。
       · SmsCompatReceiver        接收短信（收到的短信会写回短信库，不丢）
       · WapPushReceiver          彩信推送（本应用不处理，声明只为满足校验）
       · ComposeSmsActivity       撰写短信的极简界面
@@ -28,6 +34,14 @@
       同时也是系统校验「默认短信应用」资格时检查的权限之一。
     -->
     <uses-permission android:name="android.permission.SEND_SMS" />
+    <!--
+      Google 对「短信应用」要求声明的另外三个权限。系统筛候选、以及部分厂商 ROM
+      的额外校验会看这组声明；本应用不主动申请这些运行时权限，只在真正短暂成为
+      默认短信应用期间由接收器接广播，不会在平时偷偷收短信。
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_MMS" />
+    <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH" />
 
     <!--
       通话记录：只申请「读」。
@@ -51,6 +65,21 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <!--
+          自检要用：Android 11+ 有包可见性过滤，这三条查询能查到自己，
+          还原页的「检查资格」才不会在部分 ROM 上误报缺失。
+        -->
+        <intent>
+            <action android:name="android.provider.Telephony.SMS_DELIVER" />
+        </intent>
+        <intent>
+            <action android:name="android.provider.Telephony.WAP_PUSH_DELIVER" />
+            <data android:mimeType="application/vnd.wap.mms-message" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.RESPOND_VIA_MESSAGE" />
             <data android:scheme="smsto" />
         </intent>
     </queries>
@@ -104,6 +133,13 @@
             android:permission="android.permission.BROADCAST_WAP_PUSH">
             <intent-filter>
                 <action android:name="android.provider.Telephony.WAP_PUSH_DELIVER" />
+                <!--
+                  这个 mimeType 不能省：系统是用
+                  setDataAndType(null, "application/vnd.wap.mms-message") 来查接收器的，
+                  没有它 mMmsReceiverClass 就是 null，isComplete() 直接 false，
+                  本应用不会出现在默认短信应用列表里。
+                -->
+                <data android:mimeType="application/vnd.wap.mms-message" />
             </intent-filter>
         </receiver>
 
@@ -129,7 +165,12 @@
             <intent-filter>
                 <action android:name="android.intent.action.RESPOND_VIA_MESSAGE" />
                 <category android:name="android.intent.category.DEFAULT" />
+                <!--
+                  系统用 smsto: 来查这个服务，只写 sms: 匹配不上。
+                  两个 scheme 写在同一个 intent-filter 里会合并成集合，都能匹配。
+                -->
                 <data android:scheme="sms" />
+                <data android:scheme="smsto" />
             </intent-filter>
         </service>
 

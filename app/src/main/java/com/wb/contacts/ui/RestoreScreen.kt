@@ -7,6 +7,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.TextButton
+import com.wb.contacts.util.SmsRoleDiagnostics
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,12 +74,11 @@ fun RestoreDataScreen(vm: ContactsViewModel) {
 
     // 写回系统通讯录需要 WRITE_CONTACTS，没授权就先申请
     val canWriteContacts = remember(tick) { PermissionUtil.canWriteContacts(context) }
-    // 写回系统短信的真正门槛：必须是「默认短信应用」。
-    // WRITE_SMS 权限能拿到，但那不够 —— 不是默认短信应用时 insert 会
-    // 静默失败（不报错、返回非 null Uri，短信却根本不在短信应用里）。
-    val canWriteSms = remember(tick) {
-        PermissionUtil.isDefaultSmsApp(context) && PermissionUtil.canWriteSms(context)
-    }
+    // 写回系统短信的唯一门槛：必须是「默认短信应用」。
+    // WRITE_SMS 权限只是角色的伴随结果，别拿它当拦截条件 ——
+    // 个别 ROM 上 checkSelfPermission 仍可能返回 false，会把已拿到身份的用户挡住。
+    // 真写不进去时 SystemSms 会按 id 回读校验，如实计入失败数。
+    val canWriteSms = remember(tick) { PermissionUtil.isDefaultSmsApp(context) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -178,6 +180,9 @@ fun RestoreDataScreen(vm: ContactsViewModel) {
                     actionText = stringResource(R.string.restore_data_sms_role_action),
                     onAction = requestDefaultSmsApp
                 )
+                Spacer(Modifier.height(12.dp))
+                // 系统设置里找不到本应用时，别让用户对着空列表猜
+                SmsRoleCheckCard(tick)
                 Spacer(Modifier.height(12.dp))
             }
 
@@ -321,5 +326,137 @@ private fun RestoreBlockNotice(
                 modifier = Modifier.fillMaxWidth()
             ) { Text(actionText) }
         }
+    }
+}
+
+/**
+ * 「默认短信应用列表里为什么没有本应用」的自检卡。
+ *
+ * 把 AOSP 筛候选用的四条查询原样跑一遍，逐项显示是否命中。
+ * 这样能当场分清两种情况：
+ * · 声明没写全 —— 那是我们的问题，装新版即可
+ * · 四项都齐但列表仍没有 —— 那是厂商 ROM 的白名单，代码改不动
+ */
+@Composable
+private fun SmsRoleCheckCard(tick: Int) {
+    val context = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    // 展开时才查；从系统设置返回后（tick 变化）重新查一遍
+    val report = remember(expanded, tick) {
+        if (expanded) SmsRoleDiagnostics.check(context) else null
+    }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stringResource(R.string.restore_data_sms_diag_title),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.restore_data_sms_diag_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+
+            if (!expanded) {
+                Button(
+                    onClick = { expanded = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(stringResource(R.string.restore_data_sms_diag_action)) }
+            } else {
+                val r = report
+                if (r != null) {
+                    DiagLine(stringResource(R.string.restore_data_sms_diag_item_sms), r.smsReceiver)
+                    DiagLine(stringResource(R.string.restore_data_sms_diag_item_mms), r.mmsReceiver)
+                    DiagLine(stringResource(R.string.restore_data_sms_diag_item_respond), r.respondService)
+                    DiagLine(stringResource(R.string.restore_data_sms_diag_item_sendto), r.sendToActivity)
+
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        stringResource(
+                            R.string.restore_data_sms_diag_status,
+                            stringResource(
+                                if (r.isDefault) {
+                                    R.string.restore_data_sms_diag_default_yes
+                                } else {
+                                    R.string.restore_data_sms_diag_default_no
+                                }
+                            ),
+                            stringResource(
+                                if (r.roleAvailable) {
+                                    R.string.restore_data_sms_diag_role_yes
+                                } else {
+                                    R.string.restore_data_sms_diag_role_no
+                                }
+                            ),
+                            stringResource(
+                                if (r.writeSmsGranted) {
+                                    R.string.restore_data_sms_diag_perm_yes
+                                } else {
+                                    R.string.restore_data_sms_diag_perm_no
+                                }
+                            )
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        when {
+                            !r.qualified ->
+                                stringResource(R.string.restore_data_sms_diag_verdict_missing)
+                            !r.roleAvailable ->
+                                stringResource(R.string.restore_data_sms_diag_verdict_no_role)
+                            r.isDefault ->
+                                stringResource(R.string.restore_data_sms_diag_verdict_ready)
+                            else ->
+                                stringResource(R.string.restore_data_sms_diag_verdict_rom)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                TextButton(onClick = { expanded = false }) {
+                    Text(stringResource(R.string.restore_data_sms_diag_hide))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagLine(label: String, ok: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 2.dp)
+    ) {
+        Text(
+            text = if (ok) "✓" else "✗",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Bold,
+            color = if (ok) Color(0xFF15803D) else MaterialTheme.colorScheme.error
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

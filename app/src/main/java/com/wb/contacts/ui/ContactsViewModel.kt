@@ -1075,7 +1075,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             // 门槛不是 WRITE_SMS 权限，而是「是不是默认短信应用」。
             // Android 4.4 起，不是默认应用时 insert **不报错、也返回非 null 的 Uri**，
             // 但短信根本不会出现在短信应用里 —— 那种情况下绝不能报「已写回」。
-            if (!PermissionUtil.isDefaultSmsApp(context) || !PermissionUtil.canWriteSms(context)) {
+            // 门槛只有「是不是默认短信应用」这一个。
+            // WRITE_SMS 权限只是角色的伴随结果，个别 ROM 上 checkSelfPermission
+            // 可能仍返回 false —— 拿它当拦截条件会把已经拿到身份的用户挡在门外。
+            // 真写不进去时，SystemSms 的回读校验会计入 failed，不会谎报成功。
+            if (!PermissionUtil.isDefaultSmsApp(context)) {
                 RestoreResult(target, 0, 0, 0, true)
             } else {
                 // 遍历全表：界面上只渲染了第一页，不能只把那 200 条写回去。

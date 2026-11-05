@@ -191,7 +191,7 @@ Android 对这几个权限有硬性约束，代码里如实反映，不假装能
 | 读通讯录 | `READ_CONTACTS` | ✅ 运行时授权即可 |
 | 删通讯录 | `WRITE_CONTACTS` | ✅ 普通权限，授权即可 |
 | 读短信 | `READ_SMS` | ✅ 运行时授权即可 |
-| 写短信 | `WRITE_SMS` + 默认短信应用身份 | ⚠️ 权限能拿到，但**还得是默认短信应用**；不是默认应用时系统会静默丢弃写入 |
+| 写短信 | 本应用是「默认短信应用」 | ⚠️ 只读 `WRITE_SMS` 权限没用；不是默认应用时系统会静默丢弃写入 |
 | 读通话记录 | `READ_CALL_LOG` | ✅ 运行时授权即可 |
 | 删通话记录 | `WRITE_CALL_LOG` | ❌ signature\|privileged 权限，普通应用永远拿不到，只能在自带电话 App 里手动清 |
 
@@ -204,10 +204,10 @@ Android 对这几个权限有硬性约束，代码里如实反映，不假装能
 
 - 启动时不申请任何权限，进入哪个功能才申请哪个功能需要的权限
 - 通讯录的「读」和「写」拆开：导入只要读，还原/清空系统时才单独申请写
-- 短信和通话记录只申请「读」
-- `WRITE_SMS` 在清单里声明 —— 它本身是危险权限、运行时就能拿到，
-  但**真正的门槛是「是不是默认短信应用」**。Android 10+ 授予这个角色时会逐项校验
-  清单里的四个短信组件，所以 v1.8.0 补齐了 `sms/` 包下的四个组件
+- 短信和通话记录只主动申请「读」；`RECEIVE_SMS` / `RECEIVE_MMS` / `RECEIVE_WAP_PUSH`
+  只在清单里声明，供系统校验「默认短信应用」资格，平时不申请、也不接收短信
+- `WRITE_SMS` 同样只在清单里声明：它是系统授予默认短信应用角色时的伴随结果，
+  **真正的门槛是角色本身**。判据只看 `isDefaultSmsApp`，不拿权限当拦截条件
 - `WRITE_CALL_LOG` 在清单里不声明 —— 它是 signature\|privileged 权限，
   声明了换不来权限，只会在系统「应用权限」页面多出一条看得见却永远拿不到的条目，
   徒增用户疑虑
@@ -277,6 +277,42 @@ v1.7.0 把写回系统这件事收进独立的**首页右上角菜单 → 还原
 另外补了两件事：写回后**按 id 回读校验**（确认这条真的落进了短信库，
 而不是只相信 `insert` 的返回值），以及把 **`sub_id` 一起存取**——
 双卡机上不带订阅信息，短信会落到另一张卡的分组里，用户在常用的那张卡上根本看不到。
+
+### v1.8.1：为什么「默认短信应用」列表里没有本应用
+
+补完四个组件后，真机上仍可能看不到本应用。原因不在组件数量，而在**声明的细节** ——
+AOSP 的 `SmsApplication.getApplicationCollection()` 是系统筛候选的地方，
+它按四条固定的 Intent 去查，`SmsApplicationData.isComplete()` 要求四项全部命中：
+
+| # | 系统的查询方式 | 组件要怎么声明 |
+| --- | --- | --- |
+| 1 | `SMS_DELIVER` | receiver，且 `android:permission="BROADCAST_SMS"` |
+| 2 | `WAP_PUSH_DELIVER` + `setDataAndType(null, "application/vnd.wap.mms-message")` | receiver 里**必须带这个 mimeType**，且声明 `BROADCAST_WAP_PUSH` |
+| 3 | `RESPOND_VIA_MESSAGE` + `smsto:` | service，声明 `SEND_RESPOND_VIA_MESSAGE`，filter 支持 `smsto` |
+| 4 | `ACTION_SENDTO` + `smsto:` | activity，filter 支持 `smsto` |
+
+v1.8.0 漏了第 2 项的 mimeType 和第 3 项的 `smsto` scheme —— 组件类都在，
+但系统那两条查询**匹配不上**，于是 `isComplete()` 为 false，
+本应用从头到尾就没进过候选列表。v1.8.1 补齐这两处，
+并按 Google 对短信应用的规范补声明 `RECEIVE_SMS` / `RECEIVE_MMS` / `RECEIVE_WAP_PUSH`
+（只在清单里声明，平时不申请、不收短信）。
+
+顺带把「能不能写回短信」的判据收敛成**只看是不是默认短信应用**：
+`WRITE_SMS` 只是角色的伴随结果，个别 ROM 上 `checkSelfPermission` 仍可能返回 false，
+拿它当拦截条件会把已经拿到身份的用户挡在门外。真写不进去时，
+`SystemSms` 的**按 id 回读校验**会把失败条数如实写进结果弹窗。
+
+#### 应用内自检
+
+还原页勾了短信、却还不是默认短信应用时，会多出一张「默认短信应用里找不到本应用？」卡片。
+点「检查资格」，会把上面四条查询原样跑一遍，逐项显示命中与否，并给结论：
+
+- **有项没通过** → 声明没写全，装最新版重试（关于页可看版本号）
+- **四项全齐、角色不可用** → 本机没提供 `ROLE_SMS`，多见于无通话功能的设备或定制 ROM
+- **四项全齐、角色可用，但列表里仍然没有** → 多半是厂商 ROM 对默认短信应用设了白名单，
+  **代码改不动**。这种情况下短信无法写回系统，建议改用 CSV 导出留档
+
+这一步把「我们的问题」和「手机的限制」区分开，不用再对着一个空白列表猜。
 
 ### 导出的和写回的都是全表，不是界面上那一页
 
@@ -377,6 +413,7 @@ app/src/main/java/com/wb/contacts/
 │   └── CallNotifier.kt         # 通知渠道
 ├── ui/                         # Compose 页面
 └── util/                       # 拼音、号码归一化、权限、开关、标签本地化
+    └── SmsRoleDiagnostics.kt   # 复刻 AOSP 四条查询，自检默认短信应用资格
 
 app/src/main/res/
 ├── values/strings.xml          # 默认（简体中文，中文文案的唯一来源）

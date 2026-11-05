@@ -212,10 +212,10 @@
     <string name="about_what_title">它解决什么问题</string>
     <string name="about_what_body">把手机通讯录、短信、通话记录一起搬进一个加密的本地库：整条记录用 AES-256-GCM 加密后落盘，数据库里没有明文的姓名、号码和短信内容；再配合来电识别悬浮窗，陌生号码也能看出是谁。</string>
     <string name="about_update_title">本次更新</string>
+        <string name="about_update_v1_8_1">v1.8.1</string>
+    <string name="about_update_v1_8_1_desc">补齐系统筛选「默认短信应用」所需的两处声明，列表里能看到本应用了；还原页新增资格自检</string>
     <string name="about_update_v1_8">v1.8.0</string>
     <string name="about_update_v1_8_desc">修复短信还原「报告成功却没写进去」的问题；还原数据去掉通话记录，清空系统里的只剩通讯录可选</string>
-    <string name="about_update_v1_7">v1.7.0</string>
-    <string name="about_update_v1_7_desc">新增「还原数据」页，可把加密库写回手机系统；清空系统短信前会先说明路径并提供跳转</string>
     <string name="about_features_title">核心功能</string>
     <string name="about_feature_import_title">通讯录备份</string>
     <string name="about_feature_import_desc">一次性把系统通讯录搬进来；清空系统后仍可随时在「还原数据」里导回系统，卸载前记得先还原或导出 CSV</string>
@@ -236,6 +236,7 @@
 · 通讯录（写）—— 在「还原数据」里把加密库写回系统时才需要
 · 短信（读）—— 把系统短信导入加密库
 · 短信（写）—— Android 4.4 起只有「默认短信应用」才能读写短信库，所以把短信写回系统前需要先切换一次默认短信应用
+· 短信 / 彩信接收 —— 只在清单里声明，供系统校验「默认短信应用」资格；本应用平时不申请、也不接收短信
 · 通话记录（读）—— 把系统通话记录导入加密库
 · 通话状态 —— 挂断后自动撤掉来电悬浮窗
 · 悬浮窗 / 通知 —— 显示来电识别卡片与常驻通知
@@ -478,6 +479,25 @@
     <string name="restore_data_sms_role_title">还需要默认短信应用身份</string>
     <string name="restore_data_sms_role_body">Android 4.4 起，只有「默认短信应用」才能往系统短信库里写东西 —— 不是默认应用时，系统会「接受」写入请求却不真正写入，短信根本不会出现在短信应用里。点下面的按钮去系统设置里把本应用设为默认短信应用；写回完成后记得再切回你原来的短信应用。</string>
     <string name="restore_data_sms_role_action">前往设为默认短信应用</string>
+    <string name="restore_data_sms_diag_title">默认短信应用里找不到本应用？</string>
+    <string name="restore_data_sms_diag_hint">系统会按四项固定条件筛「默认短信应用」候选。点检查，看看是声明没写全，还是手机厂商做了限制。</string>
+    <string name="restore_data_sms_diag_action">检查资格</string>
+    <string name="restore_data_sms_diag_hide">收起</string>
+    <string name="restore_data_sms_diag_item_sms">短信接收器（SMS_DELIVER）</string>
+    <string name="restore_data_sms_diag_item_mms">彩信接收器（WAP_PUSH_DELIVER + 彩信类型）</string>
+    <string name="restore_data_sms_diag_item_respond">快速回复服务（RESPOND_VIA_MESSAGE + smsto）</string>
+    <string name="restore_data_sms_diag_item_sendto">撰写界面（ACTION_SENDTO + smsto）</string>
+    <string name="restore_data_sms_diag_status">当前：%1$s · 短信角色%2$s · 写短信权限%3$s</string>
+    <string name="restore_data_sms_diag_default_yes">已是默认短信应用</string>
+    <string name="restore_data_sms_diag_default_no">还不是默认短信应用</string>
+    <string name="restore_data_sms_diag_role_yes">可用</string>
+    <string name="restore_data_sms_diag_role_no">不可用</string>
+    <string name="restore_data_sms_diag_perm_yes">已授予</string>
+    <string name="restore_data_sms_diag_perm_no">未授予</string>
+    <string name="restore_data_sms_diag_verdict_missing">有声明没被系统查到，本应用不会被列进「默认短信应用」候选。请确认装的是最新版本（关于页可看版本号），装完重试。</string>
+    <string name="restore_data_sms_diag_verdict_no_role">四项声明都齐全，但本机没有提供「短信」角色，多见于无通话功能的设备或定制 ROM。这台机器上无法临时接管短信。</string>
+    <string name="restore_data_sms_diag_verdict_ready">本应用当前已是默认短信应用，可以还原短信了。还原完成后记得切回原来的短信应用。</string>
+    <string name="restore_data_sms_diag_verdict_rom">四项声明都齐全，系统本应把本应用列为候选。如果手机「设置 → 默认应用 → 短信」里仍然看不到，多半是厂商 ROM 对默认短信应用设了白名单，代码改不动；这种情况短信无法写回系统，建议改用 CSV 导出留档。</string>
     <string name="restore_data_warning_title">还原前请确认</string>
     <string name="restore_data_warning_body">· 还原会在系统里新增通讯录、短信等内容，本应用里的加密副本不会删除
 · 短信写回系统需要本应用是默认短信应用，否则系统会静默丢弃写入请求

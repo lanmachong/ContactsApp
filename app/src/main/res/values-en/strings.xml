@@ -205,10 +205,10 @@
     <string name="about_what_title">What it solves</string>
     <string name="about_what_body">It moves your phone contacts, messages and call history into an encrypted local vault: every record is encrypted with AES-256-GCM before it hits the disk, so the database holds no readable names, numbers or message bodies. Paired with the caller ID overlay, even an unknown number shows you who it is.</string>
     <string name="about_update_title">What\'s new</string>
+        <string name="about_update_v1_8_1">v1.8.1</string>
+    <string name="about_update_v1_8_1_desc">Fixed two missing declarations that kept this app out of the default SMS app list; Restore data can now check eligibility</string>
     <string name="about_update_v1_8">v1.8.0</string>
     <string name="about_update_v1_8_desc">Fixed restoring messages reporting success without writing anything; Restore data no longer offers call history, and only contacts can be cleared in the system</string>
-    <string name="about_update_v1_7">v1.7.0</string>
-    <string name="about_update_v1_7_desc">Added a Restore data page to write the encrypted store back into your phone; clearing system messages now explains the path and offers a jump to the right setting</string>
     <string name="about_features_title">Core features</string>
     <string name="about_feature_import_title">Contacts backup</string>
     <string name="about_feature_import_desc">Copy your system contacts in all at once; after clearing the system you can write them back any time from Restore data, and before uninstalling remember to restore or export a CSV</string>
@@ -226,9 +226,10 @@
     <string name="about_perms_body">Every permission is required by the feature it belongs to, and each one is requested only when you open that feature — nothing is demanded all at once at startup:
 
 · Contacts (read) — import your system contacts into the encrypted vault
-· Contacts (write) — only needed to write the vault back to the system from Restore data
+· Contacts (write) — only needed in Restore data to write the vault back to the system
 · SMS (read) — import your system messages into the encrypted vault
-· SMS (write) — since Android 4.4 only the default SMS app may read and write the message store, so switching the default SMS app once is required before writing messages back
+· SMS (write) — since Android 4.4 only the default SMS app may write to the message store, so switching the default SMS app once is required before restoring messages
+· SMS / MMS receive — declared in the manifest only so the system recognises this app as a default SMS candidate; this app never requests them and does not receive messages during normal use
 · Call log (read) — import your system call history into the encrypted vault
 · Phone state — dismiss the caller ID overlay after the call ends
 · Overlay / notifications — show the caller ID card and the ongoing notification
@@ -508,6 +509,25 @@ There is no network permission, and no location, camera, microphone, or storage 
     <string name="restore_data_sms_role_title">Default SMS app is still needed</string>
     <string name="restore_data_sms_role_body">Since Android 4.4 only the default SMS app may write to the system message store. When this app is not the default one, the system accepts the write request without actually writing anything, and the messages never show up in your messaging app. Use the button to set this app as the default SMS app, then switch back to your usual messaging app when you are done.</string>
     <string name="restore_data_sms_role_action">Set as default SMS app</string>
+    <string name="restore_data_sms_diag_title">Not listed as a default SMS app?</string>
+    <string name="restore_data_sms_diag_hint">Android filters default SMS candidates by four fixed checks. Run the check to see whether a declaration is missing or the phone maker blocks it.</string>
+    <string name="restore_data_sms_diag_action">Check eligibility</string>
+    <string name="restore_data_sms_diag_hide">Collapse</string>
+    <string name="restore_data_sms_diag_item_sms">SMS receiver (SMS_DELIVER)</string>
+    <string name="restore_data_sms_diag_item_mms">MMS receiver (WAP_PUSH_DELIVER + MMS type)</string>
+    <string name="restore_data_sms_diag_item_respond">Quick reply service (RESPOND_VIA_MESSAGE + smsto)</string>
+    <string name="restore_data_sms_diag_item_sendto">Compose screen (ACTION_SENDTO + smsto)</string>
+    <string name="restore_data_sms_diag_status">Now: %1$s · SMS role %2$s · write SMS %3$s</string>
+    <string name="restore_data_sms_diag_default_yes">already the default SMS app</string>
+    <string name="restore_data_sms_diag_default_no">not the default SMS app yet</string>
+    <string name="restore_data_sms_diag_role_yes">available</string>
+    <string name="restore_data_sms_diag_role_no">unavailable</string>
+    <string name="restore_data_sms_diag_perm_yes">granted</string>
+    <string name="restore_data_sms_diag_perm_no">not granted</string>
+    <string name="restore_data_sms_diag_verdict_missing">At least one declaration was not found, so this app will not be listed as a default SMS candidate. Make sure you installed the latest version (see About for the version number) and try again.</string>
+    <string name="restore_data_sms_diag_verdict_no_role">All four declarations are present, but this device does not offer the SMS role - common on devices without telephony or on custom ROMs. Taking over SMS temporarily is not possible here.</string>
+    <string name="restore_data_sms_diag_verdict_ready">This app is currently the default SMS app, so messages can be restored. Remember to switch back to your original SMS app afterwards.</string>
+    <string name="restore_data_sms_diag_verdict_rom">All four declarations are present, so Android should list this app as a candidate. If Settings - Default apps - SMS still does not show it, the phone maker is likely whitelisting default SMS apps, which code cannot bypass. In that case messages cannot be written back; export a CSV instead.</string>
     <string name="restore_data_warning_title">Before you restore</string>
     <string name="restore_data_warning_body">· Restoring adds contacts and messages back into the system; the encrypted copy in this app is not touched
 · Writing messages back requires this app to be the default SMS app, otherwise the system silently discards the write request
