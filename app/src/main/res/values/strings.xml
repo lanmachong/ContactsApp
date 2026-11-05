@@ -1,4 +1,471 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <!-- ==================== 应用 ==================== -->
     <string name="app_name">通讯录</string>
+    <string name="app_name_full">本地加密通讯录</string>
+
+    <!-- ==================== 通用动作 ==================== -->
+    <string name="action_cancel">取消</string>
+    <string name="action_confirm_clear">确认清空</string>
+    <string name="action_delete">删除</string>
+    <string name="action_save">保存</string>
+    <string name="action_ok">知道了</string>
+    <string name="action_copy">复制</string>
+    <string name="action_dial">拨号</string>
+    <string name="action_back">返回</string>
+    <string name="action_search">搜索</string>
+    <string name="action_more">更多</string>
+    <string name="action_close">关闭</string>
+    <string name="action_clear">清空</string>
+    <string name="action_grant">去授权</string>
+    <string name="action_load_more">加载更多</string>
+    <string name="action_importing">导入中…</string>
+    <string name="action_view">查看</string>
+    <string name="action_backed_up_delete">我已备份，全部删除</string>
+    <string name="action_add_contact">新增联系人</string>
+
+    <!-- ==================== 联系人标签 / 分组 ==================== -->
+    <!-- 这两个值会以内部键的形式写进加密数据库，显示时才映射成本地化文案 -->
+    <string name="tag_duplicate">重复</string>
+    <string name="group_system_import">系统导入</string>
+    <string name="contact_unnamed">未命名</string>
+
+    <!-- ==================== 首页 ==================== -->
+    <string name="home_title">通讯录</string>
+    <plurals name="home_subtitle">
+        <item quantity="other">%1$d 位联系人 · 本地加密存储</item>
+    </plurals>
+    <string name="home_subtitle_version"> · v%1$s</string>
+    <string name="home_section_favorites">★ 收藏</string>
+    <string name="home_filter_all">全部</string>
+    <string name="home_filter_favorite">收藏</string>
+    <string name="home_search_hint">姓名 / 号码 / 拼音首字母</string>
+    <string name="home_close_search">关闭搜索</string>
+    <string name="home_no_phone">无号码</string>
+    <string name="home_favorited">已收藏</string>
+    <string name="home_toggle_favorite">切换收藏</string>
+    <string name="home_empty_no_match">没有匹配的联系人</string>
+    <string name="home_empty_none">通讯录还是空的</string>
+    <string name="home_empty_no_match_hint">换个关键词或筛选条件试试</string>
+    <string name="home_empty_none_hint">数据加密后只保存在这台手机上，不会上传</string>
+    <string name="home_import_from_system">从系统通讯录导入</string>
+    <string name="home_add_manually">手动添加联系人</string>
+    <string name="home_loading">正在解密本地通讯录…</string>
+    <string name="home_menu_import">从系统通讯录导入</string>
+    <string name="home_menu_sms">短信备份</string>
+    <string name="home_menu_calllog">通话记录备份</string>
+    <string name="home_menu_callid">来电识别悬浮窗</string>
+    <string name="home_menu_duplicates">检测重复联系人</string>
+    <string name="home_menu_clear_local">清空本应用通讯录</string>
+    <string name="home_menu_about">关于</string>
+
+    <!-- ==================== 弹窗 ==================== -->
+    <string name="dialog_delete_title">删除联系人</string>
+    <string name="dialog_delete_message">删除后无法恢复，确定继续吗？</string>
+    <string name="dialog_clear_title">清空通讯录</string>
+    <string name="dialog_clear_message">将删除本机保存的全部联系人，且无法恢复。</string>
+    <string name="dialog_wipe_all_title">清空系统通讯录</string>
+    <plurals name="dialog_wipe_all_count">
+        <item quantity="other">全部 %1$d 位联系人</item>
+    </plurals>
+    <string name="dialog_wipe_all_count_any">全部联系人</string>
+    <string name="dialog_wipe_all_message">会删除系统通讯录里当前的%1$s，包括重复的、没有号码的、以及从没导入过的。\n\n· 本应用内的加密副本不受影响，仍然可以查和拨号\n· 此操作不可撤销，请确认已经导出 CSV 备份\n· 云账户联系人的删除可能同步到云端</string>
+    <string name="dialog_wipe_sms_title">清空系统短信</string>
+    <string name="dialog_wipe_sms_message">会删除手机短信应用里的全部短信。\n\n· 本应用内的加密副本不受影响，仍然可以查看\n· 此操作不可撤销，建议先导出 CSV 备份\n· Android 4.4 起需本应用是默认短信应用才能删掉，否则系统会拒绝</string>
+    <string name="dialog_clear_sms_title">清空本应用短信副本</string>
+    <string name="dialog_clear_sms_message">将删除本机保存的全部短信副本，系统里的原短信不受影响，且无法恢复。</string>
+    <string name="dialog_wipe_calls_title">清空系统通话记录</string>
+    <string name="dialog_wipe_calls_message">会尝试删除手机里的全部通话记录。\n\n· 本应用内的加密副本不受影响\n· 此操作不可撤销，建议先导出 CSV 备份\n· 系统通常只把删除权限授予系统应用，普通 App 会被拒绝</string>
+    <string name="dialog_clear_calls_title">清空本应用通话记录副本</string>
+    <string name="dialog_clear_calls_message">将删除本机保存的全部通话记录副本，系统里的原记录不受影响，且无法恢复。</string>
+
+    <!-- ==================== 导入与清理 ==================== -->
+    <string name="import_title">导入与清理</string>
+    <string name="import_step1_title">导入系统通讯录</string>
+    <string name="import_step1_desc">一次性把手机通讯录读进本应用，整条记录用 AES-256-GCM 加密后写入本机数据库。</string>
+    <string name="import_stat_system">系统通讯录</string>
+    <string name="import_stat_local">本应用</string>
+    <string name="import_stat_pending">待授权</string>
+    <plurals name="import_stat_count">
+        <item quantity="other">%1$d 条</item>
+    </plurals>
+    <string name="import_grant_permission">授予通讯录权限</string>
+    <string name="import_start">开始导入</string>
+    <string name="import_check_duplicates">检测重复</string>
+    <string name="import_duplicate_hint">重复的号码会被自动打上「重复」标签，搜号码即可定位；系统通讯录里的重复卡片需要你自己去系统里删。</string>
+    <string name="import_step2_title">先备份，再动手</string>
+    <string name="import_step2_desc">CSV 是明文文件，只建议临时存放。导出后请自己保管好，不想要了就删掉。</string>
+    <string name="import_export_csv">导出 CSV 备份</string>
+    <string name="import_step3_title">导出到系统通讯录</string>
+    <string name="import_step3_desc">把本应用里的联系人写回手机系统通讯录。系统里已有相同号码的会跳过，不会写出重复卡片。卸载前想还原数据就用这一步。</string>
+    <string name="import_grant_write">授予写入权限</string>
+    <string name="import_no_contacts">本应用还没有联系人</string>
+    <plurals name="import_export_count">
+        <item quantity="other">导出 %1$d 人到系统</item>
+    </plurals>
+    <string name="import_step4_title">清空系统通讯录</string>
+    <string name="import_step4_desc">按系统当前的全部联系人删除：重复的、没有号码的、导入之后才新增的，一次清干净。本应用内的加密副本会保留，仍然可以查和拨号。</string>
+    <string name="import_reading">正在读取系统通讯录…</string>
+    <string name="import_system_empty">系统通讯录已是空的</string>
+    <plurals name="import_wipe_count">
+        <item quantity="other">清空系统 %1$d 人</item>
+    </plurals>
+    <string name="import_warning_title">删除前请确认</string>
+    <string name="import_warning_body">· 若联系人来自 Google / 手机厂商云账号，删除会被同步适配器推送到云端\n· 系统「回收站」通常只保留 30 天，超时后不可恢复\n· 建议先把 CSV 备份存到电脑或 U 盘，确认无误后再清理</string>
+    <string name="import_local_only">数据仅存本机</string>
+    <string name="import_version_local">当前版本 v%1$s · 数据仅存本机</string>
+
+    <!-- ==================== 短信备份 ==================== -->
+    <string name="sms_title">短信备份</string>
+    <plurals name="sms_subtitle">
+        <item quantity="other">%1$d 条已加密保存</item>
+    </plurals>
+    <string name="sms_info_title">把手机短信搬进加密库</string>
+    <string name="sms_info_desc">整条短信用 AES-256-GCM 加密后写入本机数据库，库里没有任何明文内容。系统里的原短信可以随后清掉，防流氓软件读取。</string>
+    <string name="sms_stat_system">系统短信</string>
+    <string name="sms_stat_local">本应用</string>
+    <plurals name="sms_stat_count">
+        <item quantity="other">%1$d 条</item>
+    </plurals>
+    <string name="sms_grant_permission">授予短信权限</string>
+    <string name="sms_import_system">导入系统短信</string>
+    <string name="sms_export_csv">导出 CSV</string>
+    <string name="sms_privacy_hint">短信内容属于敏感数据，只有你授权后本应用才会读取。所有数据仅存在这台手机上，不上传、不联网。</string>
+    <string name="sms_section_manage">管理</string>
+    <string name="sms_action_export_system">导出到系统短信</string>
+    <string name="sms_action_export_system_desc">把本应用里的短信写回手机短信应用，按内容+时间去重</string>
+    <string name="sms_action_export_system_desc_need_default">需要先设为默认短信应用，点击前往系统设置</string>
+    <string name="sms_action_wipe_system">清空系统短信</string>
+    <string name="sms_action_wipe_system_desc">删除手机短信应用里的全部短信，本应用的加密副本保留</string>
+    <string name="sms_action_clear_local">清空本应用短信副本</string>
+    <string name="sms_action_clear_local_desc">删除本应用保存的短信副本，系统里的原短信不受影响</string>
+    <string name="sms_section_backed_up">已备份的短信</string>
+    <string name="sms_list_hint">点击可展开全文，长按号码可直接拨号。列表按导入顺序倒序展示，最多加载 200 条。</string>
+    <string name="sms_empty_none">还没有备份任何短信</string>
+    <string name="sms_empty_need_permission">需要短信读取权限才能显示内容</string>
+    <string name="sms_permission_title">短信权限说明</string>
+    <string name="sms_permission_body">读取短信需要 READ_SMS 权限，删除短信需要 WRITE_SMS 权限。\n\n授予后，只有本应用能读到短信内容，且数据全部加密存在本机。</string>
+    <string name="sms_not_default_app">还没有设为默认短信应用，暂时无法清空系统短信</string>
+    <string name="sms_cannot_open_settings">无法打开系统设置，请手动到「设置 - 应用 - 默认应用」中修改</string>
+    <string name="sms_unknown_number">未知号码</string>
+
+    <!-- ==================== 通话记录备份 ==================== -->
+    <string name="calllog_title">通话记录备份</string>
+    <plurals name="calllog_subtitle">
+        <item quantity="other">%1$d 条已加密保存</item>
+    </plurals>
+    <string name="calllog_info_title">把通话记录搬进加密库</string>
+    <string name="calllog_info_desc">整条记录用 AES-256-GCM 加密后写入本机数据库，号码、时长全部是密文。系统里的原记录可以随后清掉。</string>
+    <string name="calllog_stat_system">系统记录</string>
+    <string name="calllog_stat_local">本应用</string>
+    <plurals name="calllog_stat_count">
+        <item quantity="other">%1$d 条</item>
+    </plurals>
+    <string name="calllog_grant_permission">授予通话记录权限</string>
+    <string name="calllog_import_system">导入系统记录</string>
+    <string name="calllog_export_csv">导出 CSV</string>
+    <string name="calllog_privacy_hint">通话记录属于敏感数据，只有你授权后本应用才会读取。所有数据仅存在这台手机上，不上传、不联网。</string>
+    <string name="calllog_section_manage">管理</string>
+    <string name="calllog_action_wipe_system">清空系统通话记录</string>
+    <string name="calllog_action_wipe_system_desc">删除手机里的全部通话记录，本应用的加密副本保留</string>
+    <string name="calllog_action_wipe_system_desc_denied">系统只把删除权限授予系统应用，普通 App 会被拒绝；可在自带电话 App 里手动清</string>
+    <string name="calllog_action_clear_local">清空本应用通话记录副本</string>
+    <string name="calllog_action_clear_local_desc">删除本应用保存的通话记录副本，系统里的原记录不受影响</string>
+    <string name="calllog_section_backed_up">已备份的通话记录</string>
+    <string name="calllog_list_hint">点击号码可直接拨号。列表按导入顺序倒序展示，最多加载 200 条。</string>
+    <string name="calllog_empty_none">还没有备份任何通话记录</string>
+    <string name="calllog_empty_need_permission">需要通话记录读取权限才能显示内容</string>
+    <string name="calllog_unknown_number">未知号码</string>
+
+    <!-- ==================== 来电识别设置 ==================== -->
+    <string name="callsettings_title">来电识别</string>
+    <string name="callsettings_header">来电时在拨号界面顶部显示姓名</string>
+    <plurals name="callsettings_header_desc">
+        <item quantity="other">号码匹配在手机本地完成，姓名和号码不会发给任何服务器。已建立 %1$d 个号码的索引。</item>
+    </plurals>
+    <plurals name="callsettings_recognizable">
+        <item quantity="other">当前可识别 %1$d 位联系人的号码</item>
+    </plurals>
+    <string name="callsettings_toggle">开启来电识别</string>
+    <string name="callsettings_toggle_on">前台服务运行中，来电时会自动弹出悬浮窗</string>
+    <string name="callsettings_toggle_off">开启后会常驻一个低优先级通知，保证进程不被系统回收</string>
+    <string name="callsettings_perm_overlay">显示在其他应用上层</string>
+    <string name="callsettings_perm_overlay_desc">悬浮窗必须的权限</string>
+    <string name="callsettings_perm_screening">来电显示和骚扰拦截</string>
+    <string name="callsettings_perm_screening_granted">已授权，可在振铃瞬间拿到号码</string>
+    <string name="callsettings_perm_screening_need">Android 10 起需要授予该角色才能读取来电号码</string>
+    <string name="callsettings_perm_notification">通知权限</string>
+    <string name="callsettings_perm_notification_desc">用于显示「来电识别已开启」的常驻通知</string>
+    <string name="callsettings_perm_phone_state">通话状态权限</string>
+    <string name="callsettings_perm_phone_state_desc">挂断后自动撤掉悬浮窗</string>
+    <string name="callsettings_preview">预览悬浮窗效果</string>
+    <string name="callsettings_note">说明：本应用只读取号码做匹配，不录音、不上传、不拦截来电。关闭开关后前台服务和悬浮窗都会停止。</string>
+
+    <!-- ==================== 联系人详情 ==================== -->
+    <string name="detail_title">联系人</string>
+    <string name="detail_favorite">收藏</string>
+    <string name="detail_edit">编辑</string>
+    <string name="detail_phone_label">手机</string>
+    <string name="detail_phone2_label">备用</string>
+    <string name="detail_send_sms">发短信</string>
+    <string name="detail_no_phone">这个联系人还没有号码（导入时系统里只有姓名或邮箱）。点右上角编辑补一个即可拨号。</string>
+    <string name="detail_note_label">备注</string>
+    <string name="detail_footer">数据以 AES-256-GCM 加密保存在本机，密钥由系统 Keystore 保管。来电时会显示这个联系人的姓名。</string>
+
+    <!-- ==================== 编辑联系人 ==================== -->
+    <string name="edit_title_new">新增联系人</string>
+    <string name="edit_title_edit">编辑联系人</string>
+    <string name="edit_label_name">姓名 *</string>
+    <string name="edit_label_phone">手机号 *</string>
+    <string name="edit_label_phone2">备用号码</string>
+    <string name="edit_label_group">分组</string>
+    <string name="edit_label_tags">标签</string>
+    <string name="edit_tags_placeholder">如：大学同学、客户</string>
+    <string name="edit_label_note">备注</string>
+    <string name="edit_favorite">收藏置顶</string>
+    <string name="edit_favorite_desc">收藏的联系人会排在列表最前面</string>
+
+    <!-- ==================== 关于 ==================== -->
+    <string name="about_title">关于</string>
+    <string name="about_developer">懒码虫</string>
+    <string name="about_tagline">数据全部留在本机</string>
+    <string name="about_tagline_version">v%1$s · 数据全部留在本机</string>
+    <string name="about_what_title">它解决什么问题</string>
+    <string name="about_what_body">把手机通讯录搬进一个加密的本地库：整条记录用 AES-256-GCM 加密后落盘，数据库里没有明文的姓名和号码；再配合来电识别悬浮窗，陌生号码也能看出是谁。</string>
+    <string name="about_features_title">核心功能</string>
+    <string name="about_feature_import_title">导入 / 导出</string>
+    <string name="about_feature_import_desc">一次性把系统通讯录搬进来；清空系统后仍可随时导回系统，卸载也不怕</string>
+    <string name="about_feature_crypto_title">加密存储</string>
+    <string name="about_feature_crypto_desc">密钥由系统 Keystore 生成，永不落盘、不可导出；数据库被拷走也读不出内容</string>
+    <string name="about_feature_sms_title">短信备份</string>
+    <string name="about_feature_sms_desc">短信内容整体加密入库，可查看、可导出 CSV，也可清空系统里的原短信</string>
+    <string name="about_feature_call_title">通话记录备份</string>
+    <string name="about_feature_call_desc">通话记录加密留存，号码与时长不落明文，随时能查能导出</string>
+    <string name="about_feature_caller_title">来电识别</string>
+    <string name="about_feature_caller_desc">来电时弹悬浮窗显示对方姓名，只识别不拦截、不录音、不上传</string>
+    <string name="about_feature_local_title">纯本地</string>
+    <string name="about_feature_local_desc">没有账号、没有服务器、没有埋点，所有数据只在这台手机上</string>
+    <string name="about_perms_title">权限说明</string>
+    <string name="about_perms_body">每个权限都是对应功能必需，且在你点进那个功能时才申请，不会在启动时一次性索要：\n\n· 通讯录（读）—— 把系统通讯录导入加密库\n· 通讯录（写）—— 把加密库导回系统、清空系统通讯录时才需要\n· 短信（读）—— 把系统短信导入加密库\n· 短信（写）—— 系统规定只有「默认短信应用」才能删短信，所以点清空时若未设置，会直接带你到系统设置页\n· 通话记录（读）—— 把系统通话记录导入加密库\n· 通话状态 —— 挂断后自动撤掉来电悬浮窗\n· 悬浮窗 / 通知 —— 显示来电识别卡片与常驻通知\n\n没有网络权限，没有位置、相机、麦克风、存储权限。</string>
+    <string name="about_dev_title">开发者</string>
+    <string name="about_open_github">打开 GitHub</string>
+    <string name="about_oss_title">开源</string>
+    <string name="about_oss_subtitle">本应用已开源</string>
+    <string name="about_open_repo">打开源码仓库</string>
+    <string name="about_oss_body">MIT 许可协议，欢迎自行编译、修改、分发。源码里不含任何后端服务，所有功能都在你的手机上跑。</string>
+    <string name="about_tips_title">使用提示</string>
+    <string name="about_tips_body">· 重复联系人会被自动打上「重复」标签，搜号码即可定位\n· 卸载 App 会连同加密密钥一起清除，卸载前请先「导出到系统通讯录」或导出 CSV\n· 短信与通话记录同样需要授权才能读取，数据只在本机加密保存\n· 来电悬浮窗需要「显示在其他应用上层」权限，部分国产 ROM 还要额外允许后台弹出界面</string>
+
+    <!-- ==================== 通知 / 悬浮窗 ==================== -->
+    <string name="notify_channel_name">来电识别</string>
+    <string name="notify_channel_desc">来电时显示联系人的悬浮窗提示</string>
+    <string name="notify_title">来电识别已开启</string>
+    <plurals name="notify_text">
+        <item quantity="other">来电时会显示姓名悬浮窗 · 已识别 %1$d 个号码</item>
+    </plurals>
+    <string name="overlay_unknown_number">未知号码</string>
+    <string name="overlay_unknown_incoming">来电号码未知</string>
+    <string name="overlay_note">备注：%1$s</string>
+
+    <!-- ==================== 通话记录类型 ==================== -->
+    <string name="call_type_incoming">来电</string>
+    <string name="call_type_outgoing">去电</string>
+    <string name="call_type_missed">未接</string>
+    <string name="call_type_rejected">拒接</string>
+    <string name="call_type_blocked">屏蔽</string>
+    <string name="call_type_answered">已接</string>
+    <string name="call_type_unknown">未知</string>
+    <string name="call_duration_min_sec">%1$d分%2$d秒</string>
+    <string name="call_duration_sec">%1$d秒</string>
+
+    <!-- ==================== 短信类型 ==================== -->
+    <string name="sms_type_received">收到</string>
+    <string name="sms_type_sent">已发送</string>
+    <string name="sms_type_draft">草稿</string>
+    <string name="sms_type_sending">发送中</string>
+    <string name="sms_type_failed">发送失败</string>
+    <string name="sms_type_queued">队列中</string>
+    <string name="sms_type_unknown">未知</string>
+    <string name="sms_direction_out">发出</string>
+    <string name="sms_direction_in">收到</string>
+
+    <!-- ==================== 通用提示 ==================== -->
+    <string name="yes">是</string>
+    <string name="no">否</string>
+    <string name="toast_number_empty">号码为空</string>
+    <string name="toast_no_dial_app">没有可用的拨号应用</string>
+    <string name="toast_no_sms_app">没有可用的短信应用</string>
+    <string name="toast_copy_failed">复制失败</string>
+    <string name="toast_copied">已复制号码</string>
+
+    <!-- ==================== 校验 / 提示语 ==================== -->
+    <string name="err_name_empty">姓名不能为空</string>
+    <string name="err_phone_invalid">请填写有效的号码</string>
+    <string name="toast_added">已添加联系人</string>
+    <string name="toast_saved">已保存修改</string>
+    <string name="toast_deleted">已删除</string>
+    <string name="toast_cleared">通讯录已清空</string>
+    <string name="err_read_for_dup">需要通讯录读取权限才能比对重复</string>
+    <string name="busy_compare_dup">正在比对重复号码…</string>
+    <string name="dup_done_title">重复检测完成</string>
+    <plurals name="dup_found">
+        <item quantity="other">发现 %1$d 个重复号码</item>
+    </plurals>
+    <string name="dup_tagged">新标记 %1$d 人，撤销 %2$d 人</string>
+    <string name="dup_hint">带「重复」标签的联系人，搜号码就能定位。系统通讯录里的重复卡片需要你自己去系统里删。</string>
+    <string name="dup_failed_title">检测失败</string>
+    <string name="err_read_contacts">读取通讯录时出错</string>
+    <string name="err_write_contacts">需要通讯录写入权限</string>
+    <string name="err_no_contacts">本应用里还没有联系人</string>
+    <string name="busy_export_system">正在导出到系统通讯录…</string>
+    <string name="export_done_title">导出完成</string>
+    <plurals name="export_created">
+        <item quantity="other">写入系统通讯录 %1$d 人</item>
+    </plurals>
+    <plurals name="export_skipped_existing">
+        <item quantity="other">系统已有相同号码，跳过 %1$d 人</item>
+    </plurals>
+    <plurals name="export_skipped_nophone">
+        <item quantity="other">没有号码，跳过 %1$d 人</item>
+    </plurals>
+    <plurals name="export_failed_count">
+        <item quantity="other">写入失败 %1$d 人（系统拒绝了请求）</item>
+    </plurals>
+    <string name="export_copy_unchanged">本应用里的加密副本保持不变。</string>
+    <string name="export_failed_title">导出失败</string>
+    <string name="err_write_contacts_sys">写入系统通讯录时出错</string>
+    <string name="err_read_contacts_perm">需要通讯录读取权限</string>
+    <string name="busy_read_contacts">正在读取系统通讯录…</string>
+    <string name="import_extra_dups">\n\n检测到 %1$d 个重复号码，已给 %2$d 人打上「重复」标签。</string>
+    <string name="import_done_title">导入完成</string>
+    <string name="import_failed_title">导入失败</string>
+    <string name="err_read_system">读取系统通讯录时出错</string>
+    <string name="busy_wipe_system">正在清空系统通讯录…</string>
+    <string name="wipe_failed_title">清空失败</string>
+    <string name="wipe_denied_message">系统拒绝了删除请求，请检查通讯录写入权限。</string>
+    <string name="wipe_done_title">系统通讯录已清空</string>
+    <plurals name="wipe_deleted">
+        <item quantity="other">共删除 %1$d 条记录（含重复的、没有号码的、导入后新增的）</item>
+    </plurals>
+    <string name="wipe_copy_kept">本应用内的加密副本不受影响，仍然可以查和拨号</string>
+    <plurals name="wipe_remaining">
+        <item quantity="other">系统里仍有 %1$d 人没删掉，通常来自只读账户（如企业目录、SIM 卡），需要到系统设置里手动处理。</item>
+    </plurals>
+    <string name="wipe_cloud_note">若联系人来自云端账户，同步适配器可能把删除同步到云端。</string>
+    <string name="err_empty_export">通讯录为空，无需导出</string>
+    <string name="busy_export_backup">正在导出备份…</string>
+    <string name="toast_export_failed">导出失败</string>
+    <string name="backup_done_title">备份已导出</string>
+    <plurals name="backup_done_message">
+        <item quantity="other">共导出 %1$d 条联系人。\n\n⚠️ CSV 是明文文件，请存放在安全位置，用完及时删除。</item>
+    </plurals>
+    <string name="err_read_sms">需要短信读取权限</string>
+    <string name="busy_read_sms">正在读取系统短信…</string>
+    <string name="sms_import_done_title">短信导入完成</string>
+    <plurals name="sms_import_total">
+        <item quantity="other">系统短信共 %1$d 条</item>
+    </plurals>
+    <plurals name="sms_import_added">
+        <item quantity="other">本次新增导入 %1$d 条</item>
+    </plurals>
+    <plurals name="sms_import_skipped">
+        <item quantity="other">已导入过，跳过 %1$d 条</item>
+    </plurals>
+    <string name="sms_import_encrypted">已用会话密钥 AES-256-GCM 加密写入本机数据库。</string>
+    <string name="sms_import_failed_title">短信导入失败</string>
+    <string name="err_read_system_sms">读取系统短信时出错</string>
+    <string name="err_write_sms">需要短信写入权限</string>
+    <string name="busy_wipe_sms">正在清空系统短信…</string>
+    <string name="sms_wipe_denied_title">系统拒绝了删除请求</string>
+    <string name="sms_wipe_denied_message">Android 4.4 起，只有「默认短信应用」才能删除短信。\n\n· 可以把本应用设为默认短信应用后再试\n· 或者在系统短信应用里手动清空\n\n本应用内的加密副本不受影响，仍然可以查看。</string>
+    <string name="sms_wipe_done_title">系统短信已清空</string>
+    <plurals name="sms_wipe_deleted">
+        <item quantity="other">共删除 %1$d 条</item>
+    </plurals>
+    <string name="sms_wipe_copy_kept">本应用内的加密副本不受影响</string>
+    <plurals name="sms_wipe_remaining">
+        <item quantity="other">系统里仍剩 %1$d 条（部分短信属于系统账户，无法删除）。</item>
+    </plurals>
+    <string name="toast_sms_cleared">本应用的短信副本已清空</string>
+    <string name="err_no_sms">本应用里还没有短信</string>
+    <string name="busy_export_sms">正在导出短信到系统…</string>
+    <string name="sms_export_done_title">短信导出完成</string>
+    <plurals name="sms_export_created">
+        <item quantity="other">写入系统 %1$d 条</item>
+    </plurals>
+    <plurals name="sms_export_skipped">
+        <item quantity="other">系统已有相同短信，跳过 %1$d 条</item>
+    </plurals>
+    <plurals name="sms_export_failed_count">
+        <item quantity="other">写入失败 %1$d 条（系统拒绝了请求）</item>
+    </plurals>
+    <string name="sms_export_copy_unchanged">本应用内的加密副本保持不变。</string>
+    <string name="err_write_system_sms">写入系统短信时出错</string>
+    <string name="err_no_sms_export">没有短信可导出</string>
+    <string name="busy_export_sms_backup">正在导出短信备份…</string>
+    <string name="sms_backup_done_title">短信备份已导出</string>
+    <plurals name="sms_backup_done_message">
+        <item quantity="other">共导出 %1$d 条短信。\n\n⚠️ CSV 是明文文件，请存放在安全位置，用完及时删除。</item>
+    </plurals>
+    <string name="err_read_calllog">需要通话记录读取权限</string>
+    <string name="busy_read_calllog">正在读取系统通话记录…</string>
+    <string name="call_import_done_title">通话记录导入完成</string>
+    <plurals name="call_import_total">
+        <item quantity="other">系统通话记录共 %1$d 条</item>
+    </plurals>
+    <plurals name="call_import_added">
+        <item quantity="other">本次新增导入 %1$d 条</item>
+    </plurals>
+    <plurals name="call_import_skipped">
+        <item quantity="other">已导入过，跳过 %1$d 条</item>
+    </plurals>
+    <string name="call_import_encrypted">已用会话密钥 AES-256-GCM 加密写入本机数据库。</string>
+    <string name="err_read_system_calls">读取通话记录时出错</string>
+    <string name="err_calllog_not_allowed">系统不允许普通应用删除通话记录</string>
+    <string name="busy_wipe_calllog">正在清空系统通话记录…</string>
+    <string name="call_wipe_denied_title">系统拒绝了删除请求</string>
+    <string name="call_wipe_denied_message">Android 对通话记录的删除权限只授予系统应用，普通 App 无法清空。\n\n· 可以在手机自带「电话」App 里手动删除\n· 或到 设置 → 应用 → 电话 → 清除数据\n\n本应用内的加密副本不受影响。</string>
+    <string name="call_wipe_done_title">系统通话记录已清空</string>
+    <plurals name="call_wipe_deleted">
+        <item quantity="other">共删除 %1$d 条。本应用内的加密副本不受影响。</item>
+    </plurals>
+    <string name="toast_call_cleared">本应用的通话记录副本已清空</string>
+    <string name="err_no_calls_export">没有通话记录可导出</string>
+    <string name="busy_export_calls_backup">正在导出通话记录备份…</string>
+    <string name="call_backup_done_title">通话记录备份已导出</string>
+    <plurals name="call_backup_done_message">
+        <item quantity="other">共导出 %1$d 条记录。\n\n⚠️ CSV 是明文文件，请存放在安全位置，用完及时删除。</item>
+    </plurals>
+
+    <!-- ==================== 导入结果汇总 ==================== -->
+    <string name="import_desc_empty">系统通讯录里没有读到联系人。请确认已授予通讯录读取权限。</string>
+    <plurals name="import_desc_total">
+        <item quantity="other">系统通讯录共 %1$d 人</item>
+    </plurals>
+    <plurals name="import_desc_added">
+        <item quantity="other">本次新增 %1$d 人</item>
+    </plurals>
+    <plurals name="import_desc_updated">
+        <item quantity="other">补全 / 更新 %1$d 人（系统里改过的姓名、号码已同步）</item>
+    </plurals>
+    <plurals name="import_desc_unchanged">
+        <item quantity="other">内容一致、无需变动 %1$d 人</item>
+    </plurals>
+    <plurals name="import_desc_merged">
+        <item quantity="other">合并库内重复 %1$d 条（同一人被导入过多次）</item>
+    </plurals>
+    <plurals name="import_desc_nophone">
+        <item quantity="other">其中 %1$d 人没有号码，只保存了姓名</item>
+    </plurals>
+    <plurals name="import_desc_norawid">
+        <item quantity="other">有 %1$d 人拿不到系统 ID，清理时按全量删除兜底</item>
+    </plurals>
+    <string name="import_desc_encrypted">已用 AES-256-GCM 加密写入本机数据库。</string>
+
+    <!-- ==================== CSV 表头 ==================== -->
+    <string name="csv_contacts_header">姓名,手机号,备用号码,分组,标签,备注,收藏</string>
+    <string name="csv_sms_header">时间,号码,方向,状态,已读,内容</string>
+    <string name="csv_calls_header">时间,号码,姓名,类型,时长(秒)</string>
+
 </resources>

@@ -33,18 +33,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.wb.contacts.R
 import com.wb.contacts.data.Contact
+import com.wb.contacts.util.Labels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewModel) {
+    val context = LocalContext.current
     var name by remember(contact) { mutableStateOf(contact?.name.orEmpty()) }
     var phone by remember(contact) { mutableStateOf(contact?.phone.orEmpty()) }
     var phone2 by remember(contact) { mutableStateOf(contact?.phone2.orEmpty()) }
-    var group by remember(contact) { mutableStateOf(contact?.groupName.orEmpty()) }
+    // 分组展示的是本地化文案，保存时再转回库里的内部键
+    var group by remember(contact) {
+        mutableStateOf(Labels.groupDisplay(context, contact?.groupName.orEmpty()))
+    }
     var tags by remember(contact) { mutableStateOf(contact?.tags.orEmpty()) }
     var note by remember(contact) { mutableStateOf(contact?.note.orEmpty()) }
     var favorite by remember(contact) { mutableStateOf(contact?.favorite ?: false) }
@@ -54,7 +62,7 @@ fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewM
             name = name.trim(),
             phone = phone.trim(),
             phone2 = phone2.trim(),
-            groupName = group.trim(),
+            groupName = Labels.groupToStorage(context, group),
             tags = tags.trim(),
             note = note.trim(),
             favorite = favorite
@@ -65,15 +73,29 @@ fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewM
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (contact == null) "新增联系人" else "编辑联系人") },
+                title = {
+                    Text(
+                        if (contact == null) {
+                            stringResource(R.string.edit_title_new)
+                        } else {
+                            stringResource(R.string.edit_title_edit)
+                        }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = vm::back) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
                     }
                 },
                 actions = {
                     IconButton(onClick = { submit() }) {
-                        Icon(Icons.Default.Check, contentDescription = "保存")
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = stringResource(R.string.action_save)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -92,7 +114,7 @@ fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewM
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("姓名 *") },
+                label = { Text(stringResource(R.string.edit_label_name)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -100,7 +122,7 @@ fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewM
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
-                label = { Text("手机号 *") },
+                label = { Text(stringResource(R.string.edit_label_phone)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth()
@@ -109,7 +131,7 @@ fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewM
             OutlinedTextField(
                 value = phone2,
                 onValueChange = { phone2 = it },
-                label = { Text("备用号码") },
+                label = { Text(stringResource(R.string.edit_label_phone2)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth()
@@ -118,7 +140,7 @@ fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewM
             OutlinedTextField(
                 value = group,
                 onValueChange = { group = it },
-                label = { Text("分组") },
+                label = { Text(stringResource(R.string.edit_label_group)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -132,8 +154,8 @@ fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewM
                 ) {
                     groups.forEach { item ->
                         AssistChip(
-                            onClick = { group = item },
-                            label = { Text(item) }
+                            onClick = { group = Labels.groupDisplay(context, item) },
+                            label = { Text(Labels.groupDisplay(context, item)) }
                         )
                     }
                 }
@@ -142,16 +164,16 @@ fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewM
             OutlinedTextField(
                 value = tags,
                 onValueChange = { tags = it },
-                label = { Text("标签") },
+                label = { Text(stringResource(R.string.edit_label_tags)) },
                 singleLine = true,
-                placeholder = { Text("如：大学同学、客户") },
+                placeholder = { Text(stringResource(R.string.edit_tags_placeholder)) },
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
-                label = { Text("备注") },
+                label = { Text(stringResource(R.string.edit_label_note)) },
                 minLines = 3,
                 maxLines = 6,
                 modifier = Modifier.fillMaxWidth()
@@ -162,9 +184,12 @@ fun ContactEditScreen(contact: Contact?, groups: List<String>, vm: ContactsViewM
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("收藏置顶", fontWeight = FontWeight.Medium)
                     Text(
-                        "收藏的联系人会排在列表最前面",
+                        stringResource(R.string.edit_favorite),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        stringResource(R.string.edit_favorite_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

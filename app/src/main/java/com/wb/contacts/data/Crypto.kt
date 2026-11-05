@@ -65,8 +65,8 @@ object Crypto {
     }
 
     fun decrypt(data: ByteArray): ByteArray {
-        require(data.size > IV_LENGTH + 1) { "密文长度异常" }
-        require(data[0] == VERSION) { "不支持的密文版本" }
+        require(data.size > IV_LENGTH + 1) { "Invalid ciphertext length" }
+        require(data[0] == VERSION) { "Unsupported ciphertext version" }
         val iv = data.copyOfRange(1, 1 + IV_LENGTH)
         val body = data.copyOfRange(1 + IV_LENGTH, data.size)
         val cipher = Cipher.getInstance(TRANSFORMATION)

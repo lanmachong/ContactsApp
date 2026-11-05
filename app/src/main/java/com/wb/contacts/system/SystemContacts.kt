@@ -9,7 +9,9 @@ import android.provider.ContactsContract.CommonDataKinds.StructuredName
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.RawContacts
 import android.telephony.PhoneNumberUtils
+import com.wb.contacts.R
 import com.wb.contacts.data.Contact
+import com.wb.contacts.util.Labels
 import com.wb.contacts.util.PhoneText
 
 /**
@@ -234,7 +236,7 @@ object SystemContacts {
                 ContentProviderOperation.newInsert(Data.CONTENT_URI)
                     .withValueBackReference(Data.RAW_CONTACT_ID, 0)
                     .withValue(Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE)
-                    .withValue(StructuredName.DISPLAY_NAME, contact.name.ifBlank { "未命名" })
+                    .withValue(StructuredName.DISPLAY_NAME, contact.name.ifBlank { context.getString(R.string.contact_unnamed) })
                     .build()
             )
             phones.forEachIndexed { index, number ->
@@ -267,18 +269,29 @@ object SystemContacts {
         val stream = context.contentResolver.openOutputStream(uri) ?: return -1
         stream.bufferedWriter(Charsets.UTF_8).use { writer ->
             writer.write("\uFEFF")
-            writer.write("姓名,手机号,备用号码,分组,标签,备注,收藏")
+            writer.write(context.getString(R.string.csv_contacts_header))
             writer.newLine()
             contacts.forEach { c ->
                 val row = listOf(
-                    c.name, c.phone, c.phone2, c.groupName, c.tags, c.note,
-                    if (c.favorite) "是" else "否"
+                    c.name, c.phone, c.phone2,
+                    // 库里存的是内部键 / 布尔位，导出成人能看的文案
+                    Labels.groupDisplay(context, c.groupName),
+                    csvTags(context, c),
+                    c.note,
+                    context.getString(if (c.favorite) R.string.yes else R.string.no)
                 )
                 writer.write(row.joinToString(",") { escape(it) })
                 writer.newLine()
             }
         }
         return contacts.size
+    }
+
+    /** 标签列：用户自己打的标签 + 重复标记（重复是独立字段，导出时要补回来） */
+    private fun csvTags(context: Context, contact: Contact): String {
+        val tags = Labels.splitTags(contact.tags).toMutableList()
+        if (contact.duplicate) tags.add(context.getString(R.string.tag_duplicate))
+        return tags.joinToString(Labels.TAG_SEPARATOR)
     }
 
     private fun escape(value: String): String {

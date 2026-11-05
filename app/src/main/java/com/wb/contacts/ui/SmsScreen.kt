@@ -49,9 +49,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wb.contacts.R
 import com.wb.contacts.data.SmsMessage
 import com.wb.contacts.util.PermissionUtil
 import java.text.SimpleDateFormat
@@ -94,7 +97,7 @@ fun SmsScreen(vm: ContactsViewModel) {
         vm.loadSms()
         // 回到应用后复查角色状态：授予了就直接继续清空，没授予就说明用户跳过了
         if (!PermissionUtil.isDefaultSmsApp(context)) {
-            vm.notify("还没有设为默认短信应用，暂时无法清空系统短信")
+            vm.notify(context.getString(R.string.sms_not_default_app))
         }
     }
 
@@ -121,7 +124,7 @@ fun SmsScreen(vm: ContactsViewModel) {
             .onFailure {
                 // 连兜底都启动不了，就直接把应用详情页给出去
                 runCatching { defaultSmsLauncher.launch(PermissionUtil.appDetailsIntent(context)) }
-                    .onFailure { vm.notify("无法打开系统设置，请手动到「设置 - 应用 - 默认应用」中修改") }
+                    .onFailure { vm.notify(context.getString(R.string.sms_cannot_open_settings)) }
             }
     }
 
@@ -130,9 +133,12 @@ fun SmsScreen(vm: ContactsViewModel) {
             TopAppBar(
                 title = {
                     Column {
-                        Text("短信备份", fontWeight = FontWeight.Bold)
                         Text(
-                            "${vm.smsMessages.size} 条已加密保存",
+                            stringResource(R.string.sms_title),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            pluralStringResource(R.plurals.sms_subtitle, vm.smsMessages.size, vm.smsMessages.size),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -140,7 +146,10 @@ fun SmsScreen(vm: ContactsViewModel) {
                 },
                 navigationIcon = {
                     IconButton(onClick = vm::back) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -159,9 +168,8 @@ fun SmsScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(8.dp))
 
             InfoCard(
-                "把手机短信搬进加密库",
-                "整条短信用 AES-256-GCM 加密后写入本机数据库，库里没有任何明文内容。" +
-                    "系统里的原短信可以随后清掉，防流氓软件读取。"
+                stringResource(R.string.sms_info_title),
+                stringResource(R.string.sms_info_desc)
             )
 
             Spacer(Modifier.height(16.dp))
@@ -170,8 +178,14 @@ fun SmsScreen(vm: ContactsViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                StatPill("系统短信", "${vm.systemSmsCount} 条")
-                StatPill("本应用", "${vm.smsMessages.size} 条")
+                StatPill(
+                    stringResource(R.string.sms_stat_system),
+                    pluralStringResource(R.plurals.sms_stat_count, vm.systemSmsCount, vm.systemSmsCount)
+                )
+                StatPill(
+                    stringResource(R.string.sms_stat_local),
+                    pluralStringResource(R.plurals.sms_stat_count, vm.smsMessages.size, vm.smsMessages.size)
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -190,13 +204,21 @@ fun SmsScreen(vm: ContactsViewModel) {
                             )
                         },
                         modifier = Modifier.weight(1f)
-                    ) { Text("授予短信权限") }
+                    ) { Text(stringResource(R.string.sms_grant_permission)) }
                 } else {
                     Button(
                         onClick = { vm.importSms() },
                         enabled = !vm.busy,
                         modifier = Modifier.weight(1f)
-                    ) { Text(if (vm.busy) "导入中…" else "导入系统短信") }
+                    ) {
+                        Text(
+                            if (vm.busy) {
+                                stringResource(R.string.action_importing)
+                            } else {
+                                stringResource(R.string.sms_import_system)
+                            }
+                        )
+                    }
                     OutlinedButton(
                         onClick = {
                             val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault())
@@ -205,15 +227,14 @@ fun SmsScreen(vm: ContactsViewModel) {
                         },
                         enabled = vm.smsMessages.isNotEmpty() && !vm.busy,
                         modifier = Modifier.weight(1f)
-                    ) { Text("导出 CSV") }
+                    ) { Text(stringResource(R.string.sms_export_csv)) }
                 }
             }
 
             if (!canRead) {
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "短信内容属于敏感数据，只有你授权后本应用才会读取。" +
-                        "所有数据仅存在这台手机上，不上传、不联网。",
+                    stringResource(R.string.sms_privacy_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -222,18 +243,18 @@ fun SmsScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "管理",
+                stringResource(R.string.sms_section_manage),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(8.dp))
 
             ActionRow(
-                title = "导出到系统短信",
+                title = stringResource(R.string.sms_action_export_system),
                 desc = if (canWrite) {
-                    "把本应用里的短信写回手机短信应用，按内容+时间去重"
+                    stringResource(R.string.sms_action_export_system_desc)
                 } else {
-                    "需要先设为默认短信应用，点击前往系统设置"
+                    stringResource(R.string.sms_action_export_system_desc_need_default)
                 },
                 enabled = vm.smsMessages.isNotEmpty() && !vm.busy,
                 onClick = {
@@ -245,11 +266,11 @@ fun SmsScreen(vm: ContactsViewModel) {
                 }
             )
             ActionRow(
-                title = "清空系统短信",
+                title = stringResource(R.string.sms_action_wipe_system),
                 desc = if (canWrite) {
-                    "删除手机短信应用里的全部短信，本应用的加密副本保留"
+                    stringResource(R.string.sms_action_wipe_system_desc)
                 } else {
-                    "需要先设为默认短信应用，点击前往系统设置"
+                    stringResource(R.string.sms_action_export_system_desc_need_default)
                 },
                 enabled = !vm.busy,
                 danger = true,
@@ -262,8 +283,8 @@ fun SmsScreen(vm: ContactsViewModel) {
                 }
             )
             ActionRow(
-                title = "清空本应用短信副本",
-                desc = "删除本应用保存的短信副本，系统里的原短信不受影响",
+                title = stringResource(R.string.sms_action_clear_local),
+                desc = stringResource(R.string.sms_action_clear_local_desc),
                 enabled = vm.smsMessages.isNotEmpty() && !vm.busy,
                 danger = true,
                 onClick = { vm.requestClearSms() }
@@ -272,13 +293,13 @@ fun SmsScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                "已备份的短信",
+                stringResource(R.string.sms_section_backed_up),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "点击可展开全文，长按号码可直接拨号。列表按导入顺序倒序展示，最多加载 200 条。",
+                stringResource(R.string.sms_list_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -291,7 +312,11 @@ fun SmsScreen(vm: ContactsViewModel) {
                 ) { androidx.compose.material3.CircularProgressIndicator() }
 
                 vm.smsMessages.isEmpty() -> EmptyHint(
-                    if (canRead) "还没有备份任何短信" else "需要短信读取权限才能显示内容"
+                    if (canRead) {
+                        stringResource(R.string.sms_empty_none)
+                    } else {
+                        stringResource(R.string.sms_empty_need_permission)
+                    }
                 )
 
                 else -> {
@@ -311,7 +336,7 @@ fun SmsScreen(vm: ContactsViewModel) {
                             onClick = { vm.loadSms(append = true) },
                             enabled = !vm.busy,
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("加载更多") }
+                        ) { Text(stringResource(R.string.action_load_more)) }
                     }
                 }
             }
@@ -323,15 +348,12 @@ fun SmsScreen(vm: ContactsViewModel) {
     if (showPermissionHint) {
         AlertDialog(
             onDismissRequest = { showPermissionHint = false },
-            title = { Text("短信权限说明") },
-            text = {
-                Text(
-                    "读取短信需要 READ_SMS 权限，删除短信需要 WRITE_SMS 权限。\n\n" +
-                        "授予后，只有本应用能读到短信内容，且数据全部加密存在本机。"
-                )
-            },
+            title = { Text(stringResource(R.string.sms_permission_title)) },
+            text = { Text(stringResource(R.string.sms_permission_body)) },
             confirmButton = {
-                TextButton(onClick = { showPermissionHint = false }) { Text("知道了") }
+                TextButton(onClick = { showPermissionHint = false }) {
+                    Text(stringResource(R.string.action_ok))
+                }
             }
         )
     }
@@ -373,14 +395,14 @@ private fun SmsRow(sms: SmsMessage, onDelete: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = sms.address.ifBlank { "未知号码" },
+                        text = sms.address.ifBlank { stringResource(R.string.sms_unknown_number) },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = sms.typeLabel(),
+                        text = sms.typeLabel(context),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -401,7 +423,7 @@ private fun SmsRow(sms: SmsMessage, onDelete: () -> Unit) {
                 IconButton(onClick = { ContactActions.dial(context, sms.address) }) {
                     Icon(
                         Icons.Default.Phone,
-                        contentDescription = "拨号",
+                        contentDescription = stringResource(R.string.action_dial),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -410,7 +432,7 @@ private fun SmsRow(sms: SmsMessage, onDelete: () -> Unit) {
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "删除",
+                    contentDescription = stringResource(R.string.action_delete),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.outline
                 )

@@ -1,5 +1,6 @@
 package com.wb.contacts.data
 
+import com.wb.contacts.util.Labels
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -16,6 +17,14 @@ data class Contact(
     val tags: String = "",
     val note: String = "",
     val favorite: Boolean = false,
+    /**
+     * 重复标记。
+     *
+     * v1.3.0 及之前「重复」是混在 [tags] 里的一个普通标签，v1.4.0 改成独立布尔
+     * 字段。原因是 tags 是用户可以随便编辑的文本：把内部标记塞进去会在编辑页
+     * 露出内部键，用户自己输入一个英文 "Duplicate" 也会被误判成系统标记。
+     */
+    val duplicate: Boolean = false,
     /**
      * 导入时记录的系统 raw contact id 列表，用于精确回删。
      * 一个人可能由多个 raw contact 聚合而成（本机 + 云账号 + SIM），
@@ -38,6 +47,7 @@ data class Contact(
         put("tags", tags)
         put("note", note)
         put("favorite", favorite)
+        put("isDuplicate", duplicate)
         put("rawIds", JSONArray(sourceRawIds))
         put("createdAt", createdAt)
         put("updatedAt", updatedAt)
@@ -49,15 +59,21 @@ data class Contact(
 
         fun fromJson(json: String, id: Long = 0L): Contact {
             val o = JSONObject(json)
+            val rawTags = o.optString("tags")
+            // 老数据把「重复」塞在 tags 里，这里顺手迁移到独立字段并从 tags 里摘掉
+            val legacyDuplicate = Labels.splitTags(rawTags)
+                .any { it == Labels.LEGACY_TAG_DUPLICATE }
             return Contact(
                 id = id,
                 name = o.optString("name"),
                 phone = o.optString("phone"),
                 phone2 = o.optString("phone2"),
-                groupName = o.optString("group"),
-                tags = o.optString("tags"),
+                // 分组统一归一到内部键，老库里存的中文值也能识别
+                groupName = Labels.normalizeGroup(o.optString("group")),
+                tags = if (legacyDuplicate) Labels.stripLegacyDuplicateTag(rawTags) else rawTags,
                 note = o.optString("note"),
                 favorite = o.optBoolean("favorite"),
+                duplicate = o.optBoolean("isDuplicate") || legacyDuplicate,
                 sourceRawIds = readRawIds(o),
                 createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                 updatedAt = o.optLong("updatedAt", System.currentTimeMillis())

@@ -44,8 +44,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wb.contacts.R
 import com.wb.contacts.util.PermissionUtil
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -88,10 +91,13 @@ fun ImportScreen(vm: ContactsViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("导入与清理") },
+                title = { Text(stringResource(R.string.import_title)) },
                 navigationIcon = {
                     IconButton(onClick = vm::back) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -111,15 +117,25 @@ fun ImportScreen(vm: ContactsViewModel) {
 
             StepCard(
                 index = 1,
-                title = "导入系统通讯录",
-                desc = "一次性把手机通讯录读进本应用，整条记录用 AES-256-GCM 加密后写入本机数据库。"
+                title = stringResource(R.string.import_step1_title),
+                desc = stringResource(R.string.import_step1_desc)
             )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 44.dp, top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                StatPill("系统通讯录", if (vm.systemScanned) "${vm.systemContactCount} 条" else "待授权")
-                StatPill("本应用", "${contacts.size} 条")
+                StatPill(
+                    stringResource(R.string.import_stat_system),
+                    if (vm.systemScanned) {
+                        pluralStringResource(R.plurals.import_stat_count, vm.systemContactCount, vm.systemContactCount)
+                    } else {
+                        stringResource(R.string.import_stat_pending)
+                    }
+                )
+                StatPill(
+                    stringResource(R.string.import_stat_local),
+                    pluralStringResource(R.plurals.import_stat_count, contacts.size, contacts.size)
+                )
             }
             Spacer(Modifier.height(10.dp))
             Row(
@@ -135,23 +151,31 @@ fun ImportScreen(vm: ContactsViewModel) {
                             )
                         },
                         modifier = Modifier.weight(1f)
-                    ) { Text("授予通讯录权限") }
+                    ) { Text(stringResource(R.string.import_grant_permission)) }
                 } else {
                     Button(
                         onClick = { vm.importFromSystem() },
                         enabled = !vm.busy,
                         modifier = Modifier.weight(1f)
-                    ) { Text(if (vm.busy) "导入中…" else "开始导入") }
+                    ) {
+                        Text(
+                            if (vm.busy) {
+                                stringResource(R.string.action_importing)
+                            } else {
+                                stringResource(R.string.import_start)
+                            }
+                        )
+                    }
                     OutlinedButton(
                         onClick = { vm.markDuplicates() },
                         enabled = !vm.busy && contacts.isNotEmpty(),
                         modifier = Modifier.weight(1f)
-                    ) { Text("检测重复") }
+                    ) { Text(stringResource(R.string.import_check_duplicates)) }
                 }
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                "重复的号码会被自动打上「重复」标签，搜号码即可定位；系统通讯录里的重复卡片需要你自己去系统里删。",
+                stringResource(R.string.import_duplicate_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 44.dp)
@@ -161,8 +185,8 @@ fun ImportScreen(vm: ContactsViewModel) {
 
             StepCard(
                 index = 2,
-                title = "先备份，再动手",
-                desc = "CSV 是明文文件，只建议临时存放。导出后请自己保管好，不想要了就删掉。"
+                title = stringResource(R.string.import_step2_title),
+                desc = stringResource(R.string.import_step2_desc)
             )
             Row(modifier = Modifier.fillMaxWidth().padding(start = 44.dp)) {
                 OutlinedButton(
@@ -172,16 +196,15 @@ fun ImportScreen(vm: ContactsViewModel) {
                         exportLauncher.launch("contacts-$stamp.csv")
                     },
                     enabled = contacts.isNotEmpty() && !vm.busy
-                ) { Text("导出 CSV 备份") }
+                ) { Text(stringResource(R.string.import_export_csv)) }
             }
 
             Spacer(Modifier.height(20.dp))
 
             StepCard(
                 index = 3,
-                title = "导出到系统通讯录",
-                desc = "把本应用里的联系人写回手机系统通讯录。系统里已有相同号码的会跳过，" +
-                    "不会写出重复卡片。卸载前想还原数据就用这一步。"
+                title = stringResource(R.string.import_step3_title),
+                desc = stringResource(R.string.import_step3_desc)
             )
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 44.dp),
@@ -202,9 +225,9 @@ fun ImportScreen(vm: ContactsViewModel) {
                 ) {
                     Text(
                         when {
-                            !canWrite -> "授予写入权限"
-                            contacts.isEmpty() -> "本应用还没有联系人"
-                            else -> "导出 ${contacts.size} 人到系统"
+                            !canWrite -> stringResource(R.string.import_grant_write)
+                            contacts.isEmpty() -> stringResource(R.string.import_no_contacts)
+                            else -> pluralStringResource(R.plurals.import_export_count, contacts.size, contacts.size)
                         }
                     )
                 }
@@ -214,9 +237,8 @@ fun ImportScreen(vm: ContactsViewModel) {
 
             StepCard(
                 index = 4,
-                title = "清空系统通讯录",
-                desc = "按系统当前的全部联系人删除：重复的、没有号码的、导入之后才新增的，一次清干净。" +
-                    "本应用内的加密副本会保留，仍然可以查和拨号。",
+                title = stringResource(R.string.import_step4_title),
+                desc = stringResource(R.string.import_step4_desc),
                 warning = true
             )
             Row(
@@ -238,10 +260,10 @@ fun ImportScreen(vm: ContactsViewModel) {
                 ) {
                     Text(
                         when {
-                            !canWrite -> "授予写入权限"
-                            !vm.systemScanned -> "正在读取系统通讯录…"
-                            vm.systemContactCount == 0 -> "系统通讯录已是空的"
-                            else -> "清空系统 ${vm.systemContactCount} 人"
+                            !canWrite -> stringResource(R.string.import_grant_write)
+                            !vm.systemScanned -> stringResource(R.string.import_reading)
+                            vm.systemContactCount == 0 -> stringResource(R.string.import_system_empty)
+                            else -> pluralStringResource(R.plurals.import_wipe_count, vm.systemContactCount, vm.systemContactCount)
                         }
                     )
                 }
@@ -263,13 +285,14 @@ fun ImportScreen(vm: ContactsViewModel) {
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("删除前请确认", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.import_warning_title),
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "· 若联系人来自 Google / 手机厂商云账号，删除会被同步适配器推送到云端\n" +
-                            "· 系统「回收站」通常只保留 30 天，超时后不可恢复\n" +
-                            "· 建议先把 CSV 备份存到电脑或 U 盘，确认无误后再清理",
+                        stringResource(R.string.import_warning_body),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -278,7 +301,11 @@ fun ImportScreen(vm: ContactsViewModel) {
 
             Spacer(Modifier.height(16.dp))
             Text(
-                if (versionName.isBlank()) "数据仅存本机" else "当前版本 v$versionName · 数据仅存本机",
+                if (versionName.isBlank()) {
+                    stringResource(R.string.import_local_only)
+                } else {
+                    stringResource(R.string.import_version_local, versionName)
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 44.dp)

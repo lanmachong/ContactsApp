@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import com.wb.contacts.R
 
 /** 与系统应用交互：拨号盘、短信、剪贴板。全部通过隐式 Intent，无需任何权限。 */
 object ContactActions {
@@ -16,33 +17,41 @@ object ContactActions {
     fun dial(context: Context, raw: String) {
         val number = normalized(raw)
         if (number.isEmpty()) {
-            toast(context, "号码为空")
+            toast(context, context.getString(R.string.toast_number_empty))
             return
         }
-        start(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")), "没有可用的拨号应用")
+        start(
+            context,
+            Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")),
+            context.getString(R.string.toast_no_dial_app)
+        )
     }
 
     fun sms(context: Context, raw: String) {
         val number = normalized(raw)
         if (number.isEmpty()) {
-            toast(context, "号码为空")
+            toast(context, context.getString(R.string.toast_number_empty))
             return
         }
-        start(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number")), "没有可用的短信应用")
+        start(
+            context,
+            Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number")),
+            context.getString(R.string.toast_no_sms_app)
+        )
     }
 
     fun copy(context: Context, raw: String) {
         if (raw.isBlank()) {
-            toast(context, "号码为空")
+            toast(context, context.getString(R.string.toast_number_empty))
             return
         }
         val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         if (manager == null) {
-            toast(context, "复制失败")
+            toast(context, context.getString(R.string.toast_copy_failed))
             return
         }
         manager.setPrimaryClip(ClipData.newPlainText("phone_number", raw))
-        toast(context, "已复制号码")
+        toast(context, context.getString(R.string.toast_copied))
     }
 
     private fun start(context: Context, base: Intent, failure: String) {

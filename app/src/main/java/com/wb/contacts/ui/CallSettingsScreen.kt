@@ -47,8 +47,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wb.contacts.R
 import com.wb.contacts.call.CallIdService
 import com.wb.contacts.call.CallOverlayController
 import com.wb.contacts.call.CallerIndex
@@ -92,10 +95,13 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("来电识别") },
+                title = { Text(stringResource(R.string.callsettings_title)) },
                 navigationIcon = {
                     IconButton(onClick = vm::back) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -128,21 +134,20 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "来电时在拨号界面顶部显示姓名",
+                            stringResource(R.string.callsettings_header),
                             fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.titleSmall
                         )
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "号码匹配在手机本地完成，姓名和号码不会发给任何服务器。" +
-                            "已建立 $callerIndexCount 个号码的索引。",
+                        pluralStringResource(R.plurals.callsettings_header_desc, callerIndexCount, callerIndexCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        "当前可识别 ${contacts.size} 位联系人的号码",
+                        pluralStringResource(R.plurals.callsettings_recognizable, contacts.size, contacts.size),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -152,9 +157,12 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(16.dp))
 
             ToggleRow(
-                title = "开启来电识别",
-                subtitle = if (enabled) "前台服务运行中，来电时会自动弹出悬浮窗"
-                else "开启后会常驻一个低优先级通知，保证进程不被系统回收",
+                title = stringResource(R.string.callsettings_toggle),
+                subtitle = if (enabled) {
+                    stringResource(R.string.callsettings_toggle_on)
+                } else {
+                    stringResource(R.string.callsettings_toggle_off)
+                },
                 checked = enabled,
                 onCheckedChange = { on ->
                     if (on && !canOverlay) {
@@ -178,17 +186,20 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(8.dp))
 
             PermissionRow(
-                title = "显示在其他应用上层",
-                subtitle = "悬浮窗必须的权限",
+                title = stringResource(R.string.callsettings_perm_overlay),
+                subtitle = stringResource(R.string.callsettings_perm_overlay_desc),
                 granted = canOverlay,
                 onRequest = { overlayLauncher.launch(PermissionUtil.overlaySettingsIntent(context)) }
             )
 
             if (PermissionUtil.needsScreeningRole()) {
                 PermissionRow(
-                    title = "来电显示和骚扰拦截",
-                    subtitle = if (hasRole) "已授权，可在振铃瞬间拿到号码"
-                    else "Android 10 起需要授予该角色才能读取来电号码",
+                    title = stringResource(R.string.callsettings_perm_screening),
+                    subtitle = if (hasRole) {
+                        stringResource(R.string.callsettings_perm_screening_granted)
+                    } else {
+                        stringResource(R.string.callsettings_perm_screening_need)
+                    },
                     granted = hasRole,
                     onRequest = {
                         val intent = PermissionUtil.screeningRoleIntent(context)
@@ -203,16 +214,16 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 PermissionRow(
-                    title = "通知权限",
-                    subtitle = "用于显示「来电识别已开启」的常驻通知",
+                    title = stringResource(R.string.callsettings_perm_notification),
+                    subtitle = stringResource(R.string.callsettings_perm_notification_desc),
                     granted = canNotify,
                     onRequest = { notificationLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
                 )
             }
 
             PermissionRow(
-                title = "通话状态权限",
-                subtitle = "挂断后自动撤掉悬浮窗",
+                title = stringResource(R.string.callsettings_perm_phone_state),
+                subtitle = stringResource(R.string.callsettings_perm_phone_state_desc),
                 granted = PermissionUtil.canReadPhoneState(context),
                 onRequest = {
                     phoneStateLauncher.launch(android.Manifest.permission.READ_PHONE_STATE)
@@ -236,12 +247,11 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
                     )
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("预览悬浮窗效果") }
+            ) { Text(stringResource(R.string.callsettings_preview)) }
 
             Spacer(Modifier.height(16.dp))
             Text(
-                "说明：本应用只读取号码做匹配，不录音、不上传、不拦截来电。" +
-                    "关闭开关后前台服务和悬浮窗都会停止。",
+                stringResource(R.string.callsettings_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -305,7 +315,7 @@ private fun PermissionRow(
             )
         }
         if (!granted) {
-            TextButton(onClick = onRequest) { Text("去授权") }
+            TextButton(onClick = onRequest) { Text(stringResource(R.string.action_grant)) }
         }
     }
 }

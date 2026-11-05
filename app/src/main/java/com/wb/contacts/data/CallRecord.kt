@@ -1,5 +1,7 @@
 package com.wb.contacts.data
 
+import android.content.Context
+import com.wb.contacts.R
 import org.json.JSONObject
 
 /**
@@ -25,21 +27,27 @@ data class CallRecord(
 
     fun isMissed(): Boolean = type == 3
 
-    fun typeLabel(): String = when (type) {
-        1 -> "来电"
-        2 -> "去电"
-        3 -> "未接"
-        4 -> "拒接"
-        5 -> "屏蔽"
-        6 -> "已接"
-        else -> "未知"
-    }
+    fun typeLabel(context: Context): String = context.getString(
+        when (type) {
+            1 -> R.string.call_type_incoming
+            2 -> R.string.call_type_outgoing
+            3 -> R.string.call_type_missed
+            4 -> R.string.call_type_rejected
+            5 -> R.string.call_type_blocked
+            6 -> R.string.call_type_answered
+            else -> R.string.call_type_unknown
+        }
+    )
 
-    fun durationLabel(): String {
+    fun durationLabel(context: Context): String {
         if (duration <= 0L) return ""
         val min = duration / 60
         val sec = duration % 60
-        return if (min > 0) "${min}分${sec}秒" else "${sec}秒"
+        return if (min > 0) {
+            context.getString(R.string.call_duration_min_sec, min, sec)
+        } else {
+            context.getString(R.string.call_duration_sec, sec)
+        }
     }
 
     fun toJson(): String = JSONObject().apply {

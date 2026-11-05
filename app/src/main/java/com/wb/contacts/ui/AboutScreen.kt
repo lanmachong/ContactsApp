@@ -41,15 +41,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wb.contacts.R
 
 /** 关于页里的静态信息，改这里就能改全局 */
 object AppInfo {
-    const val APP_NAME = "本地加密通讯录"
-
-    const val DEVELOPER = "懒码虫"
-
     const val GITHUB_URL = "https://github.com/lanmachong"
 
     const val GITHUB_REPO = "https://github.com/lanmachong/ContactsApp"
@@ -69,10 +67,13 @@ fun AboutScreen(vm: ContactsViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("关于") },
+                title = { Text(stringResource(R.string.about_title)) },
                 navigationIcon = {
                     IconButton(onClick = vm::back) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -91,13 +92,17 @@ fun AboutScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(12.dp))
 
             Text(
-                AppInfo.APP_NAME,
+                stringResource(R.string.app_name_full),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                if (versionName.isBlank()) "数据全部留在本机" else "v$versionName · 数据全部留在本机",
+                if (versionName.isBlank()) {
+                    stringResource(R.string.about_tagline)
+                } else {
+                    stringResource(R.string.about_tagline_version, versionName)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -105,14 +110,13 @@ fun AboutScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "它解决什么问题",
+                stringResource(R.string.about_what_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                "把手机通讯录搬进一个加密的本地库：整条记录用 AES-256-GCM 加密后落盘，" +
-                    "数据库里没有明文的姓名和号码；再配合来电识别悬浮窗，陌生号码也能看出是谁。",
+                stringResource(R.string.about_what_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -120,7 +124,7 @@ fun AboutScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "核心功能",
+                stringResource(R.string.about_features_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -128,54 +132,45 @@ fun AboutScreen(vm: ContactsViewModel) {
 
             FeatureRow(
                 icon = Icons.Default.SyncAlt,
-                title = "导入 / 导出",
-                desc = "一次性把系统通讯录搬进来；清空系统后仍可随时导回系统，卸载也不怕"
+                title = stringResource(R.string.about_feature_import_title),
+                desc = stringResource(R.string.about_feature_import_desc)
             )
             FeatureRow(
                 icon = Icons.Default.Lock,
-                title = "加密存储",
-                desc = "密钥由系统 Keystore 生成，永不落盘、不可导出；数据库被拷走也读不出内容"
+                title = stringResource(R.string.about_feature_crypto_title),
+                desc = stringResource(R.string.about_feature_crypto_desc)
             )
             FeatureRow(
                 icon = Icons.Default.Chat,
-                title = "短信备份",
-                desc = "短信内容整体加密入库，可查看、可导出 CSV，也可清空系统里的原短信"
+                title = stringResource(R.string.about_feature_sms_title),
+                desc = stringResource(R.string.about_feature_sms_desc)
             )
             FeatureRow(
                 icon = Icons.Default.Call,
-                title = "通话记录备份",
-                desc = "通话记录加密留存，号码与时长不落明文，随时能查能导出"
+                title = stringResource(R.string.about_feature_call_title),
+                desc = stringResource(R.string.about_feature_call_desc)
             )
             FeatureRow(
                 icon = Icons.Default.Phone,
-                title = "来电识别",
-                desc = "来电时弹悬浮窗显示对方姓名，只识别不拦截、不录音、不上传"
+                title = stringResource(R.string.about_feature_caller_title),
+                desc = stringResource(R.string.about_feature_caller_desc)
             )
             FeatureRow(
                 icon = Icons.Default.CloudOff,
-                title = "纯本地",
-                desc = "没有账号、没有服务器、没有埋点，所有数据只在这台手机上"
+                title = stringResource(R.string.about_feature_local_title),
+                desc = stringResource(R.string.about_feature_local_desc)
             )
 
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "权限说明",
+                stringResource(R.string.about_perms_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                "每个权限都是对应功能必需，且在你点进那个功能时才申请，不会在启动时一次性索要：\n\n" +
-                    "· 通讯录（读）—— 把系统通讯录导入加密库\n" +
-                    "· 通讯录（写）—— 把加密库导回系统、清空系统通讯录时才需要\n" +
-                    "· 短信（读）—— 把系统短信导入加密库\n" +
-                    "· 短信（写）—— 系统规定只有「默认短信应用」才能删短信，" +
-                    "所以点清空时若未设置，会直接带你到系统设置页\n" +
-                    "· 通话记录（读）—— 把系统通话记录导入加密库\n" +
-                    "· 通话状态 —— 挂断后自动撤掉来电悬浮窗\n" +
-                    "· 悬浮窗 / 通知 —— 显示来电识别卡片与常驻通知\n\n" +
-                    "没有网络权限，没有位置、相机、麦克风、存储权限。",
+                stringResource(R.string.about_perms_body),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -183,7 +178,7 @@ fun AboutScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "开发者",
+                stringResource(R.string.about_dev_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -207,7 +202,7 @@ fun AboutScreen(vm: ContactsViewModel) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            AppInfo.DEVELOPER,
+                            stringResource(R.string.about_developer),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -220,7 +215,7 @@ fun AboutScreen(vm: ContactsViewModel) {
                     }
                     Icon(
                         Icons.Default.OpenInNew,
-                        contentDescription = "打开 GitHub",
+                        contentDescription = stringResource(R.string.about_open_github),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -230,7 +225,7 @@ fun AboutScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "开源",
+                stringResource(R.string.about_oss_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -254,7 +249,7 @@ fun AboutScreen(vm: ContactsViewModel) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "本应用已开源",
+                            stringResource(R.string.about_oss_subtitle),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -267,7 +262,7 @@ fun AboutScreen(vm: ContactsViewModel) {
                     }
                     Icon(
                         Icons.Default.OpenInNew,
-                        contentDescription = "打开源码仓库",
+                        contentDescription = stringResource(R.string.about_open_repo),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -275,8 +270,7 @@ fun AboutScreen(vm: ContactsViewModel) {
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "MIT 许可协议，欢迎自行编译、修改、分发。源码里不含任何后端服务，" +
-                    "所有功能都在你的手机上跑。",
+                stringResource(R.string.about_oss_body),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -284,16 +278,13 @@ fun AboutScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "使用提示",
+                stringResource(R.string.about_tips_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                "· 重复联系人会被自动打上「重复」标签，搜号码即可定位\n" +
-                    "· 卸载 App 会连同加密密钥一起清除，卸载前请先「导出到系统通讯录」或导出 CSV\n" +
-                    "· 短信与通话记录同样需要授权才能读取，数据只在本机加密保存\n" +
-                    "· 来电悬浮窗需要「显示在其他应用上层」权限，部分国产 ROM 还要额外允许后台弹出界面",
+                stringResource(R.string.about_tips_body),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

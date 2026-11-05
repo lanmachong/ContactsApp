@@ -1,5 +1,7 @@
 package com.wb.contacts.data
 
+import android.content.Context
+import com.wb.contacts.R
 import org.json.JSONObject
 
 /**
@@ -24,15 +26,17 @@ data class SmsMessage(
 
     fun isOutgoing(): Boolean = type == 2 || type == 4 || type == 5 || type == 6
 
-    fun typeLabel(): String = when (type) {
-        1 -> "收到"
-        2 -> "已发送"
-        3 -> "草稿"
-        4 -> "发送中"
-        5 -> "发送失败"
-        6 -> "队列中"
-        else -> "未知"
-    }
+    fun typeLabel(context: Context): String = context.getString(
+        when (type) {
+            1 -> R.string.sms_type_received
+            2 -> R.string.sms_type_sent
+            3 -> R.string.sms_type_draft
+            4 -> R.string.sms_type_sending
+            5 -> R.string.sms_type_failed
+            6 -> R.string.sms_type_queued
+            else -> R.string.sms_type_unknown
+        }
+    )
 
     fun toJson(): String = JSONObject().apply {
         put("address", address)

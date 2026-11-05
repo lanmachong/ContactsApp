@@ -11,8 +11,13 @@ android {
         applicationId = "com.wb.contacts"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.3.0"
+        versionCode = 7
+        versionName = "1.4.0"
+
+        // 只保留中文与英文两种语言资源：
+        // 1) 本应用只做了中英双语，其余语言一律回落到默认的中文表
+        // 2) 顺带把 AndroidX 依赖自带的几十种翻译剔掉，包体小一圈
+        resourceConfigurations += listOf("zh", "en")
     }
 
     buildTypes {

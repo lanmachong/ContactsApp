@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ==================== App ==================== -->
+    <string name="app_name">Contacts</string>
+    <string name="app_name_full">Encrypted Local Contacts</string>
+
+    <!-- ==================== Common actions ==================== -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_confirm_clear">Clear all</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="action_ok">Got it</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_dial">Call</string>
+    <string name="action_back">Back</string>
+    <string name="action_search">Search</string>
+    <string name="action_more">More</string>
+    <string name="action_close">Close</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_grant">Grant</string>
+    <string name="action_load_more">Load more</string>
+    <string name="action_importing">Importing…</string>
+    <string name="action_view">View</string>
+    <string name="action_backed_up_delete">I backed up, delete all</string>
+    <string name="action_add_contact">Add contact</string>
+
+    <!-- ==================== Tags / groups ==================== -->
+    <!-- Stored in the encrypted database as internal keys, localized only for display -->
+    <string name="tag_duplicate">Duplicate</string>
+    <string name="group_system_import">System import</string>
+    <string name="contact_unnamed">Unnamed</string>
+
+    <!-- ==================== Home ==================== -->
+    <string name="home_title">Contacts</string>
+    <plurals name="home_subtitle">
+        <item quantity="one">%1$d contact · encrypted locally</item>
+        <item quantity="other">%1$d contacts · encrypted locally</item>
+    </plurals>
+    <string name="home_subtitle_version"> · v%1$s</string>
+    <string name="home_section_favorites">★ Favorites</string>
+    <string name="home_filter_all">All</string>
+    <string name="home_filter_favorite">Favorites</string>
+    <string name="home_search_hint">Name / number / pinyin initials</string>
+    <string name="home_close_search">Close search</string>
+    <string name="home_no_phone">No number</string>
+    <string name="home_favorited">Favorited</string>
+    <string name="home_toggle_favorite">Toggle favorite</string>
+    <string name="home_empty_no_match">No matching contacts</string>
+    <string name="home_empty_none">Your contact list is empty</string>
+    <string name="home_empty_no_match_hint">Try a different keyword or filter</string>
+    <string name="home_empty_none_hint">Data is encrypted and stays on this phone — never uploaded</string>
+    <string name="home_import_from_system">Import from system contacts</string>
+    <string name="home_add_manually">Add a contact manually</string>
+    <string name="home_loading">Decrypting local contacts…</string>
+    <string name="home_menu_import">Import from system contacts</string>
+    <string name="home_menu_sms">SMS backup</string>
+    <string name="home_menu_calllog">Call log backup</string>
+    <string name="home_menu_callid">Caller ID overlay</string>
+    <string name="home_menu_duplicates">Find duplicate contacts</string>
+    <string name="home_menu_clear_local">Clear this app\'s contacts</string>
+    <string name="home_menu_about">About</string>
+
+    <!-- ==================== Dialogs ==================== -->
+    <string name="dialog_delete_title">Delete contact</string>
+    <string name="dialog_delete_message">This cannot be undone. Are you sure?</string>
+    <string name="dialog_clear_title">Clear contacts</string>
+    <string name="dialog_clear_message">All contacts stored on this device will be deleted and cannot be recovered.</string>
+    <string name="dialog_wipe_all_title">Clear system contacts</string>
+    <plurals name="dialog_wipe_all_count">
+        <item quantity="one">all %1$d contact</item>
+        <item quantity="other">all %1$d contacts</item>
+    </plurals>
+    <string name="dialog_wipe_all_count_any">all contacts</string>
+    <string name="dialog_wipe_all_message">This deletes %1$s currently in your system contacts, including duplicates, contacts without numbers, and contacts you never imported.\n\n· The encrypted copy in this app is untouched, so you can still search and dial\n· This cannot be undone — make sure you have exported a CSV backup\n· Deletions for cloud accounts may sync to the cloud</string>
+    <string name="dialog_wipe_sms_title">Clear system SMS</string>
+    <string name="dialog_wipe_sms_message">This deletes all messages in your phone\'s SMS app.\n\n· The encrypted copy in this app is untouched, so you can still read them\n· This cannot be undone — export a CSV backup first\n· Since Android 4.4 this app must be the default SMS app, otherwise the system will refuse</string>
+    <string name="dialog_clear_sms_title">Clear local SMS copies</string>
+    <string name="dialog_clear_sms_message">All SMS copies stored on this device will be deleted. The original messages in your system are not affected and cannot be recovered.</string>
+    <string name="dialog_wipe_calls_title">Clear system call log</string>
+    <string name="dialog_wipe_calls_message">This attempts to delete every call record on your phone.\n\n· The encrypted copy in this app is untouched\n· This cannot be undone — export a CSV backup first\n· The system usually grants delete permission only to system apps, so a regular app will be refused</string>
+    <string name="dialog_clear_calls_title">Clear local call log copies</string>
+    <string name="dialog_clear_calls_message">All call records stored on this device will be deleted. The original records in your system are not affected and cannot be recovered.</string>
+
+    <!-- ==================== Import & cleanup ==================== -->
+    <string name="import_title">Import &amp; cleanup</string>
+    <string name="import_step1_title">Import system contacts</string>
+    <string name="import_step1_desc">Copy your phone contacts into this app in one go. Each record is encrypted with AES-256-GCM before it touches the local database.</string>
+    <string name="import_stat_system">System contacts</string>
+    <string name="import_stat_local">This app</string>
+    <string name="import_stat_pending">Permission needed</string>
+    <plurals name="import_stat_count">
+        <item quantity="one">%1$d entry</item>
+        <item quantity="other">%1$d entries</item>
+    </plurals>
+    <string name="import_grant_permission">Grant contacts permission</string>
+    <string name="import_start">Start import</string>
+    <string name="import_check_duplicates">Find duplicates</string>
+    <string name="import_duplicate_hint">Duplicate numbers are automatically tagged as \"Duplicate\" so you can locate them by searching the number. Duplicate cards in your system contacts still have to be deleted there yourself.</string>
+    <string name="import_step2_title">Back up first</string>
+    <string name="import_step2_desc">CSV is a plain-text file, so only keep it temporarily. Store it somewhere safe and delete it when you no longer need it.</string>
+    <string name="import_export_csv">Export CSV backup</string>
+    <string name="import_step3_title">Export to system contacts</string>
+    <string name="import_step3_desc">Write the contacts from this app back into your phone\'s system contacts. Numbers that already exist are skipped, so no duplicate cards are created. Use this step to restore your data before uninstalling.</string>
+    <string name="import_grant_write">Grant write permission</string>
+    <string name="import_no_contacts">No contacts in this app yet</string>
+    <plurals name="import_export_count">
+        <item quantity="one">Export %1$d contact to system</item>
+        <item quantity="other">Export %1$d contacts to system</item>
+    </plurals>
+    <string name="import_step4_title">Clear system contacts</string>
+    <string name="import_step4_desc">Deletes every contact currently in the system: duplicates, contacts without numbers, and anyone added after you imported. The encrypted copy in this app is kept, so you can still search and dial.</string>
+    <string name="import_reading">Reading system contacts…</string>
+    <string name="import_system_empty">System contacts are already empty</string>
+    <plurals name="import_wipe_count">
+        <item quantity="one">Clear %1$d contact from system</item>
+        <item quantity="other">Clear %1$d contacts from system</item>
+    </plurals>
+    <string name="import_warning_title">Before you delete</string>
+    <string name="import_warning_body">· If your contacts come from a Google or manufacturer cloud account, the sync adapter will push the deletion to the cloud\n· The system \"recycle bin\" usually keeps entries for 30 days — after that they are gone for good\n· Save the CSV backup to your computer or a USB drive first, and double-check it before cleaning up</string>
+    <string name="import_local_only">Data stays on this phone</string>
+    <string name="import_version_local">Version v%1$s · data stays on this phone</string>
+
+    <!-- ==================== SMS backup ==================== -->
+    <string name="sms_title">SMS backup</string>
+    <plurals name="sms_subtitle">
+        <item quantity="one">%1$d message encrypted and saved</item>
+        <item quantity="other">%1$d messages encrypted and saved</item>
+    </plurals>
+    <string name="sms_info_title">Move your SMS into the encrypted vault</string>
+    <string name="sms_info_desc">Each message is encrypted with AES-256-GCM before it is written to the local database, so nothing is stored in plain text. You can then clear the originals in the system to keep malware away from them.</string>
+    <string name="sms_stat_system">System SMS</string>
+    <string name="sms_stat_local">This app</string>
+    <plurals name="sms_stat_count">
+        <item quantity="one">%1$d message</item>
+        <item quantity="other">%1$d messages</item>
+    </plurals>
+    <string name="sms_grant_permission">Grant SMS permission</string>
+    <string name="sms_import_system">Import system SMS</string>
+    <string name="sms_export_csv">Export CSV</string>
+    <string name="sms_privacy_hint">Message content is sensitive, so this app reads it only after you grant permission. All data stays on this phone — never uploaded, never networked.</string>
+    <string name="sms_section_manage">Manage</string>
+    <string name="sms_action_export_system">Export to system SMS</string>
+    <string name="sms_action_export_system_desc">Write the messages from this app back into your SMS app, deduplicated by content and time</string>
+    <string name="sms_action_export_system_desc_need_default">Set this app as the default SMS app first — tap to open system settings</string>
+    <string name="sms_action_wipe_system">Clear system SMS</string>
+    <string name="sms_action_wipe_system_desc">Delete every message in your phone\'s SMS app; the encrypted copy here is kept</string>
+    <string name="sms_action_clear_local">Clear local SMS copies</string>
+    <string name="sms_action_clear_local_desc">Delete the SMS copies stored in this app; the originals in your system are not affected</string>
+    <string name="sms_section_backed_up">Backed-up messages</string>
+    <string name="sms_list_hint">Tap to expand the full text, long-press a number to call. The list shows the most recently imported first and loads up to 200 entries.</string>
+    <string name="sms_empty_none">No messages backed up yet</string>
+    <string name="sms_empty_need_permission">SMS read permission is required to show content</string>
+    <string name="sms_permission_title">About SMS permissions</string>
+    <string name="sms_permission_body">Reading messages requires READ_SMS, deleting them requires WRITE_SMS.\n\nOnce granted, only this app can read your messages, and all data is stored encrypted on this device.</string>
+    <string name="sms_not_default_app">Not set as the default SMS app yet, so system SMS cannot be cleared</string>
+    <string name="sms_cannot_open_settings">Cannot open system settings. Change it manually in Settings - Apps - Default apps</string>
+    <string name="sms_unknown_number">Unknown number</string>
+
+    <!-- ==================== Call log backup ==================== -->
+    <string name="calllog_title">Call log backup</string>
+    <plurals name="calllog_subtitle">
+        <item quantity="one">%1$d record encrypted and saved</item>
+        <item quantity="other">%1$d records encrypted and saved</item>
+    </plurals>
+    <string name="calllog_info_title">Move your call history into the encrypted vault</string>
+    <string name="calllog_info_desc">Each record is encrypted with AES-256-GCM before it is written to the local database, so numbers and durations are never stored in plain text. You can then clear the originals in the system.</string>
+    <string name="calllog_stat_system">System records</string>
+    <string name="calllog_stat_local">This app</string>
+    <plurals name="calllog_stat_count">
+        <item quantity="one">%1$d record</item>
+        <item quantity="other">%1$d records</item>
+    </plurals>
+    <string name="calllog_grant_permission">Grant call log permission</string>
+    <string name="calllog_import_system">Import system records</string>
+    <string name="calllog_export_csv">Export CSV</string>
+    <string name="calllog_privacy_hint">Call history is sensitive, so this app reads it only after you grant permission. All data stays on this phone — never uploaded, never networked.</string>
+    <string name="calllog_section_manage">Manage</string>
+    <string name="calllog_action_wipe_system">Clear system call log</string>
+    <string name="calllog_action_wipe_system_desc">Delete every call record on your phone; the encrypted copy here is kept</string>
+    <string name="calllog_action_wipe_system_desc_denied">The system grants delete permission only to system apps, so a regular app is refused. Clear them in your built-in Phone app instead.</string>
+    <string name="calllog_action_clear_local">Clear local call log copies</string>
+    <string name="calllog_action_clear_local_desc">Delete the call records stored in this app; the originals in your system are not affected</string>
+    <string name="calllog_section_backed_up">Backed-up call records</string>
+    <string name="calllog_list_hint">Tap a number to call it. The list shows the most recently imported first and loads up to 200 entries.</string>
+    <string name="calllog_empty_none">No call records backed up yet</string>
+    <string name="calllog_empty_need_permission">Call log read permission is required to show content</string>
+    <string name="calllog_unknown_number">Unknown number</string>
+
+    <!-- ==================== Caller ID settings ==================== -->
+    <string name="callsettings_title">Caller ID</string>
+    <string name="callsettings_header">Show the caller\'s name above the dialer</string>
+    <plurals name="callsettings_header_desc">
+        <item quantity="one">Number matching happens entirely on your phone — names and numbers are never sent to any server. %1$d number is indexed.</item>
+        <item quantity="other">Number matching happens entirely on your phone — names and numbers are never sent to any server. %1$d numbers are indexed.</item>
+    </plurals>
+    <plurals name="callsettings_recognizable">
+        <item quantity="one">Currently recognizing the number of %1$d contact</item>
+        <item quantity="other">Currently recognizing the numbers of %1$d contacts</item>
+    </plurals>
+    <string name="callsettings_toggle">Enable caller ID</string>
+    <string name="callsettings_toggle_on">The foreground service is running, and the overlay pops up automatically on incoming calls</string>
+    <string name="callsettings_toggle_off">Once enabled, a low-priority notification keeps the process alive so the system does not kill it</string>
+    <string name="callsettings_perm_overlay">Display over other apps</string>
+    <string name="callsettings_perm_overlay_desc">Required for the overlay window</string>
+    <string name="callsettings_perm_screening">Call display &amp; spam blocking</string>
+    <string name="callsettings_perm_screening_granted">Granted — the number is available the moment it rings</string>
+    <string name="callsettings_perm_screening_need">Android 10 and later require this role to read the incoming number</string>
+    <string name="callsettings_perm_notification">Notification permission</string>
+    <string name="callsettings_perm_notification_desc">Used for the ongoing \"Caller ID enabled\" notification</string>
+    <string name="callsettings_perm_phone_state">Phone state permission</string>
+    <string name="callsettings_perm_phone_state_desc">Removes the overlay automatically after the call ends</string>
+    <string name="callsettings_preview">Preview the overlay</string>
+    <string name="callsettings_note">Note: this app only reads numbers for matching. It never records audio, never uploads anything, and never blocks calls. Turning the switch off stops both the foreground service and the overlay.</string>
+
+    <!-- ==================== Contact detail ==================== -->
+    <string name="detail_title">Contact</string>
+    <string name="detail_favorite">Favorite</string>
+    <string name="detail_edit">Edit</string>
+    <string name="detail_phone_label">Mobile</string>
+    <string name="detail_phone2_label">Alternate</string>
+    <string name="detail_send_sms">Send SMS</string>
+    <string name="detail_no_phone">This contact has no number yet (the system only had a name or email). Tap edit in the top right to add one so you can call.</string>
+    <string name="detail_note_label">Note</string>
+    <string name="detail_footer">Data is stored on this device with AES-256-GCM encryption, and the key is held by the system Keystore. The caller\'s name is shown on incoming calls.</string>
+
+    <!-- ==================== Edit contact ==================== -->
+    <string name="edit_title_new">New contact</string>
+    <string name="edit_title_edit">Edit contact</string>
+    <string name="edit_label_name">Name *</string>
+    <string name="edit_label_phone">Phone number *</string>
+    <string name="edit_label_phone2">Alternate number</string>
+    <string name="edit_label_group">Group</string>
+    <string name="edit_label_tags">Tags</string>
+    <string name="edit_tags_placeholder">e.g. college, work</string>
+    <string name="edit_label_note">Note</string>
+    <string name="edit_favorite">Pin to top</string>
+    <string name="edit_favorite_desc">Favorited contacts are listed first</string>
+
+    <!-- ==================== About ==================== -->
+    <string name="about_title">About</string>
+    <string name="about_developer">懒码虫</string>
+    <string name="about_tagline">All data stays on this phone</string>
+    <string name="about_tagline_version">v%1$s · all data stays on this phone</string>
+    <string name="about_what_title">What it solves</string>
+    <string name="about_what_body">It moves your phone contacts into an encrypted local vault: every record is encrypted with AES-256-GCM before it hits the disk, so the database holds no readable names or numbers. Paired with the caller ID overlay, even an unknown number shows you who it is.</string>
+    <string name="about_features_title">Core features</string>
+    <string name="about_feature_import_title">Import / export</string>
+    <string name="about_feature_import_desc">Copy your system contacts in all at once; export them back any time after clearing the system, so uninstalling is never a risk</string>
+    <string name="about_feature_crypto_title">Encrypted storage</string>
+    <string name="about_feature_crypto_desc">The key is generated by the system Keystore, never written to disk and never exportable — even if the database is copied away, its contents stay unreadable</string>
+    <string name="about_feature_sms_title">SMS backup</string>
+    <string name="about_feature_sms_desc">Message content is encrypted as a whole, and you can read it, export it to CSV, or clear the originals in the system</string>
+    <string name="about_feature_call_title">Call log backup</string>
+    <string name="about_feature_call_desc">Call history is kept encrypted, so numbers and durations never land in plain text — always available to search and export</string>
+    <string name="about_feature_caller_title">Caller ID</string>
+    <string name="about_feature_caller_desc">Shows the caller\'s name in an overlay on incoming calls — identification only, no blocking, no recording, no uploading</string>
+    <string name="about_feature_local_title">Fully local</string>
+    <string name="about_feature_local_desc">No account, no server, no analytics — all data lives on this phone only</string>
+    <string name="about_perms_title">About the permissions</string>
+    <string name="about_perms_body">Every permission is required by the feature it belongs to, and each one is requested only when you open that feature — nothing is demanded all at once at startup:\n\n· Contacts (read) — import your system contacts into the encrypted vault\n· Contacts (write) — only needed to write the vault back to the system or clear the system contacts\n· SMS (read) — import your system messages into the encrypted vault\n· SMS (write) — the system only lets the default SMS app delete messages, so if it is not set, clearing takes you straight to the system settings page\n· Call log (read) — import your system call history into the encrypted vault\n· Phone state — dismiss the caller ID overlay after the call ends\n· Overlay / notifications — show the caller ID card and the ongoing notification\n\nThere is no network permission, and no location, camera, microphone, or storage permission.</string>
+    <string name="about_dev_title">Developer</string>
+    <string name="about_open_github">Open GitHub</string>
+    <string name="about_oss_title">Open source</string>
+    <string name="about_oss_subtitle">This app is open source</string>
+    <string name="about_open_repo">Open the source repository</string>
+    <string name="about_oss_body">MIT licensed — feel free to build, modify, and redistribute it. The source contains no backend at all; every feature runs on your phone.</string>
+    <string name="about_tips_title">Tips</string>
+    <string name="about_tips_body">· Duplicate contacts are tagged as \"Duplicate\" automatically, so you can locate them by searching the number\n· Uninstalling also wipes the encryption key — export to system contacts or export a CSV first\n· SMS and call history need their own permissions, and are stored encrypted on this device only\n· The caller ID overlay needs the \"display over other apps\" permission; some Chinese ROMs also require allowing pop-ups in the background</string>
+
+    <!-- ==================== Notification / overlay ==================== -->
+    <string name="notify_channel_name">Caller ID</string>
+    <string name="notify_channel_desc">Shows an overlay with the contact\'s name on incoming calls</string>
+    <string name="notify_title">Caller ID is on</string>
+    <plurals name="notify_text">
+        <item quantity="one">Shows a name overlay on incoming calls · %1$d number recognized</item>
+        <item quantity="other">Shows a name overlay on incoming calls · %1$d numbers recognized</item>
+    </plurals>
+    <string name="overlay_unknown_number">Unknown number</string>
+    <string name="overlay_unknown_incoming">Incoming number unknown</string>
+    <string name="overlay_note">Note: %1$s</string>
+
+    <!-- ==================== Call types ==================== -->
+    <string name="call_type_incoming">Incoming</string>
+    <string name="call_type_outgoing">Outgoing</string>
+    <string name="call_type_missed">Missed</string>
+    <string name="call_type_rejected">Rejected</string>
+    <string name="call_type_blocked">Blocked</string>
+    <string name="call_type_answered">Answered</string>
+    <string name="call_type_unknown">Unknown</string>
+    <string name="call_duration_min_sec">%1$d min %2$d sec</string>
+    <string name="call_duration_sec">%1$d sec</string>
+
+    <!-- ==================== SMS types ==================== -->
+    <string name="sms_type_received">Received</string>
+    <string name="sms_type_sent">Sent</string>
+    <string name="sms_type_draft">Draft</string>
+    <string name="sms_type_sending">Sending</string>
+    <string name="sms_type_failed">Failed</string>
+    <string name="sms_type_queued">Queued</string>
+    <string name="sms_type_unknown">Unknown</string>
+    <string name="sms_direction_out">Outgoing</string>
+    <string name="sms_direction_in">Incoming</string>
+
+    <!-- ==================== Toasts ==================== -->
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="toast_number_empty">Number is empty</string>
+    <string name="toast_no_dial_app">No dialer app available</string>
+    <string name="toast_no_sms_app">No messaging app available</string>
+    <string name="toast_copy_failed">Copy failed</string>
+    <string name="toast_copied">Number copied</string>
+
+    <!-- ==================== Validation / messages ==================== -->
+    <string name="err_name_empty">Name cannot be empty</string>
+    <string name="err_phone_invalid">Please enter a valid number</string>
+    <string name="toast_added">Contact added</string>
+    <string name="toast_saved">Changes saved</string>
+    <string name="toast_deleted">Deleted</string>
+    <string name="toast_cleared">Contacts cleared</string>
+    <string name="err_read_for_dup">Contacts read permission is required to compare duplicates</string>
+    <string name="busy_compare_dup">Comparing duplicate numbers…</string>
+    <string name="dup_done_title">Duplicate check complete</string>
+    <plurals name="dup_found">
+        <item quantity="one">Found %1$d duplicate number</item>
+        <item quantity="other">Found %1$d duplicate numbers</item>
+    </plurals>
+    <string name="dup_tagged">Tagged %1$d, untagged %2$d</string>
+    <string name="dup_hint">Contacts tagged as \"Duplicate\" can be located by searching the number. Duplicate cards in your system contacts still have to be deleted there yourself.</string>
+    <string name="dup_failed_title">Check failed</string>
+    <string name="err_read_contacts">Error while reading contacts</string>
+    <string name="err_write_contacts">Contacts write permission is required</string>
+    <string name="err_no_contacts">There are no contacts in this app yet</string>
+    <string name="busy_export_system">Exporting to system contacts…</string>
+    <string name="export_done_title">Export complete</string>
+    <plurals name="export_created">
+        <item quantity="one">Wrote %1$d contact to system contacts</item>
+        <item quantity="other">Wrote %1$d contacts to system contacts</item>
+    </plurals>
+    <plurals name="export_skipped_existing">
+        <item quantity="one">Skipped %1$d (the system already has this number)</item>
+        <item quantity="other">Skipped %1$d (the system already has these numbers)</item>
+    </plurals>
+    <plurals name="export_skipped_nophone">
+        <item quantity="one">Skipped %1$d (no number)</item>
+        <item quantity="other">Skipped %1$d (no number)</item>
+    </plurals>
+    <plurals name="export_failed_count">
+        <item quantity="one">Failed to write %1$d (the system rejected the request)</item>
+        <item quantity="other">Failed to write %1$d (the system rejected the request)</item>
+    </plurals>
+    <string name="export_copy_unchanged">The encrypted copy in this app stays unchanged.</string>
+    <string name="export_failed_title">Export failed</string>
+    <string name="err_write_contacts_sys">Error while writing to system contacts</string>
+    <string name="err_read_contacts_perm">Contacts read permission is required</string>
+    <string name="busy_read_contacts">Reading system contacts…</string>
+    <string name="import_extra_dups">\n\nFound %1$d duplicate numbers and tagged %2$d contacts as \"Duplicate\".</string>
+    <string name="import_done_title">Import complete</string>
+    <string name="import_failed_title">Import failed</string>
+    <string name="err_read_system">Error while reading system contacts</string>
+    <string name="busy_wipe_system">Clearing system contacts…</string>
+    <string name="wipe_failed_title">Clear failed</string>
+    <string name="wipe_denied_message">The system rejected the delete request. Check the contacts write permission.</string>
+    <string name="wipe_done_title">System contacts cleared</string>
+    <plurals name="wipe_deleted">
+        <item quantity="one">Deleted %1$d record in total (including duplicates, contacts without numbers, and anyone added after the import)</item>
+        <item quantity="other">Deleted %1$d records in total (including duplicates, contacts without numbers, and anyone added after the import)</item>
+    </plurals>
+    <string name="wipe_copy_kept">The encrypted copy in this app is untouched, so you can still search and dial</string>
+    <plurals name="wipe_remaining">
+        <item quantity="one">%1$d contact remains undeleted, usually from read-only accounts (such as a corporate directory or the SIM card). Handle it in system settings.</item>
+        <item quantity="other">%1$d contacts remain undeleted, usually from read-only accounts (such as a corporate directory or the SIM card). Handle them in system settings.</item>
+    </plurals>
+    <string name="wipe_cloud_note">If your contacts come from a cloud account, the sync adapter may push the deletion to the cloud.</string>
+    <string name="err_empty_export">There are no contacts to export</string>
+    <string name="busy_export_backup">Exporting backup…</string>
+    <string name="toast_export_failed">Export failed</string>
+    <string name="backup_done_title">Backup exported</string>
+    <plurals name="backup_done_message">
+        <item quantity="one">Exported %1$d contact in total.
+
+⚠️ CSV is a plain-text file — keep it somewhere safe and delete it when you are done.</item>
+        <item quantity="other">Exported %1$d contacts in total.
+
+⚠️ CSV is a plain-text file — keep it somewhere safe and delete it when you are done.</item>
+    </plurals>
+    <string name="err_read_sms">SMS read permission is required</string>
+    <string name="busy_read_sms">Reading system SMS…</string>
+    <string name="sms_import_done_title">SMS import complete</string>
+    <plurals name="sms_import_total">
+        <item quantity="one">%1$d message in the system</item>
+        <item quantity="other">%1$d messages in the system</item>
+    </plurals>
+    <plurals name="sms_import_added">
+        <item quantity="one">Imported %1$d new</item>
+        <item quantity="other">Imported %1$d new</item>
+    </plurals>
+    <plurals name="sms_import_skipped">
+        <item quantity="one">Skipped %1$d (already imported)</item>
+        <item quantity="other">Skipped %1$d (already imported)</item>
+    </plurals>
+    <string name="sms_import_encrypted">Written to the local database with AES-256-GCM using a session key.</string>
+    <string name="sms_import_failed_title">SMS import failed</string>
+    <string name="err_read_system_sms">Error while reading system SMS</string>
+    <string name="err_write_sms">SMS write permission is required</string>
+    <string name="busy_wipe_sms">Clearing system SMS…</string>
+    <string name="sms_wipe_denied_title">The system rejected the delete request</string>
+    <string name="sms_wipe_denied_message">Since Android 4.4, only the default SMS app can delete messages.\n\n· Set this app as the default SMS app and try again\n· Or clear them manually in your SMS app\n\nThe encrypted copy in this app is untouched, so you can still read them.</string>
+    <string name="sms_wipe_done_title">System SMS cleared</string>
+    <plurals name="sms_wipe_deleted">
+        <item quantity="one">Deleted %1$d message in total</item>
+        <item quantity="other">Deleted %1$d messages in total</item>
+    </plurals>
+    <string name="sms_wipe_copy_kept">The encrypted copy in this app is untouched</string>
+    <plurals name="sms_wipe_remaining">
+        <item quantity="one">%1$d message remains (some belong to system accounts and cannot be deleted).</item>
+        <item quantity="other">%1$d messages remain (some belong to system accounts and cannot be deleted).</item>
+    </plurals>
+    <string name="toast_sms_cleared">The SMS copies in this app have been cleared</string>
+    <string name="err_no_sms">There are no messages in this app yet</string>
+    <string name="busy_export_sms">Exporting SMS to the system…</string>
+    <string name="sms_export_done_title">SMS export complete</string>
+    <plurals name="sms_export_created">
+        <item quantity="one">Wrote %1$d message to the system</item>
+        <item quantity="other">Wrote %1$d messages to the system</item>
+    </plurals>
+    <plurals name="sms_export_skipped">
+        <item quantity="one">Skipped %1$d (the system already has this message)</item>
+        <item quantity="other">Skipped %1$d (the system already has these messages)</item>
+    </plurals>
+    <plurals name="sms_export_failed_count">
+        <item quantity="one">Failed to write %1$d (the system rejected the request)</item>
+        <item quantity="other">Failed to write %1$d (the system rejected the request)</item>
+    </plurals>
+    <string name="sms_export_copy_unchanged">The encrypted copy in this app stays unchanged.</string>
+    <string name="err_write_system_sms">Error while writing to system SMS</string>
+    <string name="err_no_sms_export">There are no messages to export</string>
+    <string name="busy_export_sms_backup">Exporting SMS backup…</string>
+    <string name="sms_backup_done_title">SMS backup exported</string>
+    <plurals name="sms_backup_done_message">
+        <item quantity="one">Exported %1$d message in total.
+
+⚠️ CSV is a plain-text file — keep it somewhere safe and delete it when you are done.</item>
+        <item quantity="other">Exported %1$d messages in total.
+
+⚠️ CSV is a plain-text file — keep it somewhere safe and delete it when you are done.</item>
+    </plurals>
+    <string name="err_read_calllog">Call log read permission is required</string>
+    <string name="busy_read_calllog">Reading system call log…</string>
+    <string name="call_import_done_title">Call log import complete</string>
+    <plurals name="call_import_total">
+        <item quantity="one">%1$d record in the system</item>
+        <item quantity="other">%1$d records in the system</item>
+    </plurals>
+    <plurals name="call_import_added">
+        <item quantity="one">Imported %1$d new</item>
+        <item quantity="other">Imported %1$d new</item>
+    </plurals>
+    <plurals name="call_import_skipped">
+        <item quantity="one">Skipped %1$d (already imported)</item>
+        <item quantity="other">Skipped %1$d (already imported)</item>
+    </plurals>
+    <string name="call_import_encrypted">Written to the local database with AES-256-GCM using a session key.</string>
+    <string name="err_read_system_calls">Error while reading the call log</string>
+    <string name="err_calllog_not_allowed">The system does not allow regular apps to delete call records</string>
+    <string name="busy_wipe_calllog">Clearing system call log…</string>
+    <string name="call_wipe_denied_title">The system rejected the delete request</string>
+    <string name="call_wipe_denied_message">Android grants call log delete permission to system apps only, so a regular app cannot clear it.\n\n· Delete the records manually in your phone\'s built-in Phone app\n· Or go to Settings → Apps → Phone → Clear data\n\nThe encrypted copy in this app is untouched.</string>
+    <string name="call_wipe_done_title">System call log cleared</string>
+    <plurals name="call_wipe_deleted">
+        <item quantity="one">Deleted %1$d record in total. The encrypted copy in this app is untouched.</item>
+        <item quantity="other">Deleted %1$d records in total. The encrypted copy in this app is untouched.</item>
+    </plurals>
+    <string name="toast_call_cleared">The call record copies in this app have been cleared</string>
+    <string name="err_no_calls_export">There are no call records to export</string>
+    <string name="busy_export_calls_backup">Exporting call log backup…</string>
+    <string name="call_backup_done_title">Call log backup exported</string>
+    <plurals name="call_backup_done_message">
+        <item quantity="one">Exported %1$d record in total.
+
+⚠️ CSV is a plain-text file — keep it somewhere safe and delete it when you are done.</item>
+        <item quantity="other">Exported %1$d records in total.
+
+⚠️ CSV is a plain-text file — keep it somewhere safe and delete it when you are done.</item>
+    </plurals>
+
+    <!-- ==================== Import summary ==================== -->
+    <string name="import_desc_empty">No contacts were read from the system. Make sure the contacts read permission is granted.</string>
+    <plurals name="import_desc_total">
+        <item quantity="one">%1$d contact in the system</item>
+        <item quantity="other">%1$d contacts in the system</item>
+    </plurals>
+    <plurals name="import_desc_added">
+        <item quantity="one">%1$d added</item>
+        <item quantity="other">%1$d added</item>
+    </plurals>
+    <plurals name="import_desc_updated">
+        <item quantity="one">%1$d filled in / updated (names and numbers changed in the system were synced)</item>
+        <item quantity="other">%1$d filled in / updated (names and numbers changed in the system were synced)</item>
+    </plurals>
+    <plurals name="import_desc_unchanged">
+        <item quantity="one">%1$d unchanged</item>
+        <item quantity="other">%1$d unchanged</item>
+    </plurals>
+    <plurals name="import_desc_merged">
+        <item quantity="one">Merged %1$d duplicate in the library (the same person imported more than once)</item>
+        <item quantity="other">Merged %1$d duplicates in the library (the same person imported more than once)</item>
+    </plurals>
+    <plurals name="import_desc_nophone">
+        <item quantity="one">%1$d of them has no number, so only the name was saved</item>
+        <item quantity="other">%1$d of them have no number, so only the name was saved</item>
+    </plurals>
+    <plurals name="import_desc_norawid">
+        <item quantity="one">%1$d has no system ID, so cleanup falls back to deleting everything</item>
+        <item quantity="other">%1$d have no system ID, so cleanup falls back to deleting everything</item>
+    </plurals>
+    <string name="import_desc_encrypted">Written to the local database with AES-256-GCM encryption.</string>
+
+    <!-- ==================== CSV headers ==================== -->
+    <string name="csv_contacts_header">Name,Mobile,Alternate,Group,Tags,Note,Favorite</string>
+    <string name="csv_sms_header">Time,Number,Direction,Status,Read,Content</string>
+    <string name="csv_calls_header">Time,Number,Name,Type,Duration(sec)</string>
+
+</resources>

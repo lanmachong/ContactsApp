@@ -17,7 +17,9 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.wb.contacts.MainActivity
+import com.wb.contacts.R
 import com.wb.contacts.data.Contact
+import com.wb.contacts.util.Labels
 
 /**
  * 来电悬浮窗。
@@ -119,7 +121,8 @@ class CallOverlay(private val context: Context) {
         }
 
         val title = TextView(context).apply {
-            text = contact?.name?.takeIf { it.isNotBlank() } ?: "未知号码"
+            text = contact?.name?.takeIf { it.isNotBlank() }
+                ?: context.getString(R.string.overlay_unknown_number)
             setTextColor(Color.WHITE)
             textSize = 18f
             typeface = Typeface.DEFAULT_BOLD
@@ -129,7 +132,7 @@ class CallOverlay(private val context: Context) {
         texts.addView(title)
 
         val subtitle = TextView(context).apply {
-            text = number.ifBlank { "来电号码未知" }
+            text = number.ifBlank { context.getString(R.string.overlay_unknown_incoming) }
             setTextColor(SUBTITLE)
             textSize = 14f
             maxLines = 1
@@ -137,10 +140,17 @@ class CallOverlay(private val context: Context) {
         texts.addView(subtitle)
 
         val meta = listOfNotNull(
-            contact?.groupName?.takeIf { it.isNotBlank() },
-            contact?.tags?.takeIf { it.isNotBlank() }
+            contact?.groupName?.takeIf { it.isNotBlank() }
+                ?.let { Labels.groupDisplay(context, it) },
+            contact?.tags?.takeIf { it.isNotBlank() },
+            // 重复标记是独立字段，显示时补上本地化文案
+            contact?.takeIf { it.duplicate }
+                ?.let { context.getString(R.string.tag_duplicate) }
         ).joinToString(" · ")
-            .ifBlank { contact?.note?.takeIf { it.isNotBlank() }?.let { "备注：$it" } ?: "" }
+            .ifBlank {
+                contact?.note?.takeIf { it.isNotBlank() }
+                    ?.let { context.getString(R.string.overlay_note, it) } ?: ""
+            }
 
         if (meta.isNotEmpty()) {
             val metaView = TextView(context).apply {
@@ -164,13 +174,13 @@ class CallOverlay(private val context: Context) {
 
         if (contact != null) {
             actions.addView(
-                actionButton("查看") {
+                actionButton(context.getString(R.string.action_view)) {
                     hide()
                     openApp(contact.id)
                 }
             )
         }
-        actions.addView(actionButton("关闭") { hide() })
+        actions.addView(actionButton(context.getString(R.string.action_close)) { hide() })
         card.addView(actions)
 
         // 点卡片空白处也能关掉，避免挡住来电界面又关不掉

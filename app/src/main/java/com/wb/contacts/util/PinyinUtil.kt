@@ -49,8 +49,18 @@ object PinyinUtil {
     /** 用于列表分组的字母，无法识别时归入 "#" */
     fun bucket(text: String): String = initials(text).firstOrNull()?.toString() ?: "#"
 
-    /** 搜索匹配：姓名 / 号码 / 分组 / 标签 / 备注 / 拼音首字母 */
-    fun matches(contact: com.wb.contacts.data.Contact, rawQuery: String): Boolean {
+    /**
+     * 搜索匹配：姓名 / 号码 / 分组 / 标签 / 备注 / 拼音首字母
+     *
+     * [extraTerms] 用来补上「库里的值和显示出来的值不一样」的情况：
+     * 分组在库里存的是内部键（__sys_import__），重复标记在 v1.4.0 起是独立布尔字段，
+     * 用户搜的却是本地化后的文案，这些词由调用方按当前语言传进来。
+     */
+    fun matches(
+        contact: com.wb.contacts.data.Contact,
+        rawQuery: String,
+        extraTerms: List<String> = emptyList()
+    ): Boolean {
         val q = rawQuery.trim()
         if (q.isEmpty()) return true
         val upper = q.uppercase()
@@ -60,6 +70,7 @@ object PinyinUtil {
             contact.groupName.contains(q, ignoreCase = true) ||
             contact.tags.contains(q, ignoreCase = true) ||
             contact.note.contains(q, ignoreCase = true) ||
+            extraTerms.any { it.isNotBlank() && it.contains(q, ignoreCase = true) } ||
             initials(contact.name).contains(upper) ||
             matchesNumber(contact, q)
     }

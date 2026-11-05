@@ -1,6 +1,7 @@
 package com.wb.contacts.ui
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.wb.contacts.ContactsApplication
+import com.wb.contacts.R
 import com.wb.contacts.data.ArchiveRepository
 import com.wb.contacts.data.CallRecord
 import com.wb.contacts.data.Contact
@@ -16,6 +18,7 @@ import com.wb.contacts.data.SmsMessage
 import com.wb.contacts.system.SystemCallLog
 import com.wb.contacts.system.SystemContacts
 import com.wb.contacts.system.SystemSms
+import com.wb.contacts.util.Labels
 import com.wb.contacts.util.PermissionUtil
 import com.wb.contacts.util.PhoneText
 import com.wb.contacts.util.PinyinUtil
@@ -59,20 +62,22 @@ data class ImportOutcome(
     val noRawId: Int,
     val mergedDuplicates: Int
 ) {
-    fun describe(): String = buildString {
+    fun describe(context: Context): String = buildString {
         if (total == 0) {
-            append("系统通讯录里没有读到联系人。请确认已授予通讯录读取权限。")
+            append(context.getString(R.string.import_desc_empty))
             return@buildString
         }
-        appendLine("系统通讯录共 $total 人")
-        appendLine("本次新增 $imported 人")
-        if (updated > 0) appendLine("补全 / 更新 $updated 人（系统里改过的姓名、号码已同步）")
-        if (unchanged > 0) appendLine("内容一致、无需变动 $unchanged 人")
-        if (mergedDuplicates > 0) appendLine("合并库内重复 $mergedDuplicates 条（同一人被导入过多次）")
-        if (noPhone > 0) appendLine("其中 $noPhone 人没有号码，只保存了姓名")
-        if (noRawId > 0) appendLine("有 $noRawId 人拿不到系统 ID，清理时按全量删除兜底")
+        appendLine(context.resources.getQuantityString(R.plurals.import_desc_total, total, total))
+        appendLine(context.resources.getQuantityString(R.plurals.import_desc_added, imported, imported))
+        if (updated > 0) appendLine(context.resources.getQuantityString(R.plurals.import_desc_updated, updated, updated))
+        if (unchanged > 0) appendLine(context.resources.getQuantityString(R.plurals.import_desc_unchanged, unchanged, unchanged))
+        if (mergedDuplicates > 0) {
+            appendLine(context.resources.getQuantityString(R.plurals.import_desc_merged, mergedDuplicates, mergedDuplicates))
+        }
+        if (noPhone > 0) appendLine(context.resources.getQuantityString(R.plurals.import_desc_nophone, noPhone, noPhone))
+        if (noRawId > 0) appendLine(context.resources.getQuantityString(R.plurals.import_desc_norawid, noRawId, noRawId))
         appendLine()
-        append("已用 AES-256-GCM 加密写入本机数据库。")
+        append(context.getString(R.string.import_desc_encrypted))
     }
 }
 
@@ -80,12 +85,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val FAVORITE_FILTER = "__favorite__"
-
-        /** 重复联系人标签，用户可直接搜索这个标签定位 */
-        const val TAG_DUPLICATE = "重复"
-
-        /** 标签分隔符 */
-        const val TAG_SEPARATOR = "，"
     }
 
     // 与 Application 共用同一个仓储实例，否则内存缓存不共享，
@@ -96,6 +95,9 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     /** 短信 / 通话记录的加密仓储，与 Application 共用实例 */
     private val archiveRepo: ArchiveRepository =
         (app as? ContactsApplication)?.archiveRepository ?: ArchiveRepository(app)
+
+    /** ViewModel 没有重组的机会，文案统一从这里取当前语言的字符串 */
+    private val context: Context get() = getApplication<Application>()
 
     private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
     val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
@@ -246,21 +248,28 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         val name = draft.name.trim()
         val phone = draft.phone.trim()
         if (name.isEmpty()) {
-            toast = "姓名不能为空"
+            toast = context.getString(R.string.err_name_empty)
             return false
         }
         if (!draft.copy(phone = phone).hasValidPhone()) {
-            toast = "请填写有效的号码"
+            toast = context.getString(R.string.err_phone_invalid)
             return false
         }
         val now = System.currentTimeMillis()
         viewModelScope.launch {
+            // 分组统一存内部键，避免切换语言后新旧数据错位
+            val normalized = draft.copy(
+                name = name,
+                phone = phone,
+                groupName = Labels.normalizeGroup(draft.groupName),
+                updatedAt = now
+            )
             if (draft.id == 0L) {
-                repo.insert(draft.copy(name = name, phone = phone, createdAt = now, updatedAt = now))
-                toast = "已添加联系人"
+                repo.insert(normalized.copy(createdAt = now))
+                toast = context.getString(R.string.toast_added)
             } else {
-                repo.update(draft.copy(name = name, phone = phone, updatedAt = now))
-                toast = "已保存修改"
+                repo.update(normalized)
+                toast = context.getString(R.string.toast_saved)
             }
             refresh()
             screen = Screen.Home
@@ -292,7 +301,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             repo.delete(id)
             refresh()
             screen = Screen.Home
-            toast = "已删除"
+            toast = context.getString(R.string.toast_deleted)
         }
     }
 
@@ -309,7 +318,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.deleteAll()
             refresh()
-            toast = "通讯录已清空"
+            toast = context.getString(R.string.toast_cleared)
         }
     }
 
@@ -334,18 +343,17 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      * 判定范围同时覆盖系统和本应用：
      * · 系统里同一个号码出现在两个不同联系人上（Contacts 表按人去重后的重复卡片）
      * · 本应用里同一个号码出现多次
-     * 命中的联系人打上「重复」标签，用户搜号码就能定位到自己该删哪一条，
+     * 命中的联系人会被打上重复标记，用户搜号码就能定位到自己该删哪一条，
      * 系统那边的重复还需要他自己去系统通讯录里删 —— 本应用不替他动系统数据。
      */
     fun markDuplicates() {
-        val context = getApplication<Application>()
         if (!PermissionUtil.canReadContacts(context)) {
-            toast = "需要通讯录读取权限才能比对重复"
+            toast = context.getString(R.string.err_read_for_dup)
             return
         }
         if (busy) return
         busy = true
-        busyText = "正在比对重复号码…"
+        busyText = context.getString(R.string.busy_compare_dup)
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching { applyDuplicateTags() }
@@ -355,26 +363,28 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             outcome.onSuccess { (tagged, untagged, dupCount) ->
                 refresh()
                 resultDialog = ResultDialog(
-                    "重复检测完成",
+                    context.getString(R.string.dup_done_title),
                     buildString {
-                        appendLine("发现 $dupCount 个重复号码")
-                        appendLine("新标记 $tagged 人，撤销 $untagged 人")
+                        appendLine(context.resources.getQuantityString(R.plurals.dup_found, dupCount, dupCount))
+                        appendLine(context.getString(R.string.dup_tagged, tagged, untagged))
                         appendLine()
-                        append("带「重复」标签的联系人，搜号码就能定位。系统通讯录里的重复卡片需要你自己去系统里删。")
+                        append(context.getString(R.string.dup_hint))
                     }
                 )
             }.onFailure {
-                resultDialog = ResultDialog("检测失败", it.message ?: "读取通讯录时出错")
+                resultDialog = ResultDialog(
+                    context.getString(R.string.dup_failed_title),
+                    it.message ?: context.getString(R.string.err_read_contacts)
+                )
             }
         }
     }
 
     /**
      * 重复标记的核心逻辑：返回 (新标记数, 撤销数, 重复号码数)。
-     * 导入完成后也会跑一遍，保证用户改完系统记录重新导入时标签是准的。
+     * 导入完成后也会跑一遍，保证用户改完系统记录重新导入时标记是准的。
      */
     private suspend fun applyDuplicateTags(): Triple<Int, Int, Int> = withContext(Dispatchers.IO) {
-        val context = getApplication<Application>()
         // 系统里：号码 -> 出现在几个不同联系人上
         val sys = runCatching { SystemContacts.readAll(context) }.getOrDefault(emptyList())
         val sysOwners = HashMap<String, MutableSet<Long>>()
@@ -407,32 +417,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 .map { PhoneText.digits(it) }
                 .filter { it.isNotEmpty() }
             val shouldTag = phones.any { dupNumbers.contains(it) }
-            val hasTag = c.tags.contains(TAG_DUPLICATE)
-            if (shouldTag == hasTag) return@forEach
-            val newTags = if (shouldTag) {
-                addTag(c.tags, TAG_DUPLICATE)
-            } else {
-                removeTag(c.tags, TAG_DUPLICATE)
-            }
-            repo.update(c.copy(tags = newTags, updatedAt = now))
+            if (shouldTag == c.duplicate) return@forEach
+            // 重复是独立布尔字段，不混进用户可以随便编辑的 tags 里
+            repo.update(c.copy(duplicate = shouldTag, updatedAt = now))
             if (shouldTag) tagged++ else untagged++
         }
         Triple(tagged, untagged, dupNumbers.size)
     }
-    private fun addTag(tags: String, tag: String): String {
-        val parts = tags.split(TAG_SEPARATOR)
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && it != tag }
-            .toMutableList()
-        parts.add(tag)
-        return parts.joinToString(TAG_SEPARATOR)
-    }
-
-    private fun removeTag(tags: String, tag: String): String =
-        tags.split(TAG_SEPARATOR)
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && it != tag }
-            .joinToString(TAG_SEPARATOR)
 
     // ————————————————— 导出到系统通讯录 —————————————————
 
@@ -441,19 +432,18 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      * 用于「反悔卸载」或「想把数据还原回系统」的场景，按号码去重，已有号码跳过。
      */
     fun exportToSystem() {
-        val context = getApplication<Application>()
         if (!PermissionUtil.canWriteContacts(context)) {
-            toast = "需要通讯录写入权限"
+            toast = context.getString(R.string.err_write_contacts)
             return
         }
         val list = _contacts.value
         if (list.isEmpty()) {
-            toast = "本应用里还没有联系人"
+            toast = context.getString(R.string.err_no_contacts)
             return
         }
         if (busy) return
         busy = true
-        busyText = "正在导出到系统通讯录…"
+        busyText = context.getString(R.string.busy_export_system)
         viewModelScope.launch {
             val summary = withContext(Dispatchers.IO) {
                 runCatching { SystemContacts.exportToSystem(context, list) }
@@ -463,24 +453,32 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             scanSystemContacts()
             summary.onSuccess { s ->
                 resultDialog = ResultDialog(
-                    "导出完成",
+                    context.getString(R.string.export_done_title),
                     buildString {
-                        appendLine("写入系统通讯录 $s.created 人")
-                        if (s.skippedExisting > 0) appendLine("系统已有相同号码，跳过 $s.skippedExisting 人")
-                        if (s.skippedNoPhone > 0) appendLine("没有号码，跳过 $s.skippedNoPhone 人")
-                        if (s.failed > 0) appendLine("写入失败 $s.failed 人（系统拒绝了请求）")
+                        appendLine(context.resources.getQuantityString(R.plurals.export_created, s.created, s.created))
+                        if (s.skippedExisting > 0) {
+                            appendLine(context.resources.getQuantityString(R.plurals.export_skipped_existing, s.skippedExisting, s.skippedExisting))
+                        }
+                        if (s.skippedNoPhone > 0) {
+                            appendLine(context.resources.getQuantityString(R.plurals.export_skipped_nophone, s.skippedNoPhone, s.skippedNoPhone))
+                        }
+                        if (s.failed > 0) {
+                            appendLine(context.resources.getQuantityString(R.plurals.export_failed_count, s.failed, s.failed))
+                        }
                         appendLine()
-                        append("本应用里的加密副本保持不变。")
+                        append(context.getString(R.string.export_copy_unchanged))
                     }
                 )
             }.onFailure {
-                resultDialog = ResultDialog("导出失败", it.message ?: "写入系统通讯录时出错")
+                resultDialog = ResultDialog(
+                    context.getString(R.string.export_failed_title),
+                    it.message ?: context.getString(R.string.err_write_contacts_sys)
+                )
             }
         }
     }
 
     fun scanSystemContacts() {
-        val context = getApplication<Application>()
         if (!PermissionUtil.canReadContacts(context)) {
             systemScanned = false
             return
@@ -504,14 +502,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      * 记录补全。之前直接跳过，导致用户把号码从姓名栏挪到电话栏后，库里那条永远是空的。
      */
     fun importFromSystem() {
-        val context = getApplication<Application>()
         if (!PermissionUtil.canReadContacts(context)) {
-            toast = "需要通讯录读取权限"
+            toast = context.getString(R.string.err_read_contacts_perm)
             return
         }
         if (busy) return
         busy = true
-        busyText = "正在读取系统通讯录…"
+        busyText = context.getString(R.string.busy_read_contacts)
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
@@ -591,11 +588,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                         } else {
                             val contact = Contact(
                                 name = person.name.trim().ifBlank {
-                                    effectivePhones.firstOrNull() ?: "未命名"
+                                    effectivePhones.firstOrNull()
+                                        ?: context.getString(R.string.contact_unnamed)
                                 },
                                 phone = effectivePhones.getOrNull(0).orEmpty(),
                                 phone2 = effectivePhones.getOrNull(1).orEmpty(),
-                                groupName = "系统导入",
+                                // 库里存语言无关的内部键，显示时才翻译
+                                groupName = Labels.GROUP_SYSTEM_IMPORT,
                                 sourceRawIds = person.rawIds,
                                 createdAt = now,
                                 updatedAt = now
@@ -631,13 +630,19 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 refresh()
                 scanSystemContacts()
                 val extra = if (dupCount > 0) {
-                    "\n\n检测到 $dupCount 个重复号码，已给 $tagged 人打上「重复」标签。"
+                    context.getString(R.string.import_extra_dups, dupCount, tagged)
                 } else {
                     ""
                 }
-                resultDialog = ResultDialog("导入完成", result.describe() + extra)
+                resultDialog = ResultDialog(
+                    context.getString(R.string.import_done_title),
+                    result.describe(context) + extra
+                )
             }.onFailure {
-                resultDialog = ResultDialog("导入失败", it.message ?: "读取系统通讯录时出错")
+                resultDialog = ResultDialog(
+                    context.getString(R.string.import_failed_title),
+                    it.message ?: context.getString(R.string.err_read_system)
+                )
             }
         }
     }
@@ -668,14 +673,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun doWipeAll() {
         confirmWipeAll = false
-        val context = getApplication<Application>()
         if (!PermissionUtil.canWriteContacts(context)) {
-            toast = "需要通讯录写入权限"
+            toast = context.getString(R.string.err_write_contacts)
             return
         }
         if (busy) return
         busy = true
-        busyText = "正在清空系统通讯录…"
+        busyText = context.getString(R.string.busy_wipe_system)
         viewModelScope.launch {
             var deleted = withContext(Dispatchers.IO) {
                 runCatching { SystemContacts.deleteAll(context) }.getOrDefault(-1)
@@ -700,19 +704,22 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             systemContactCount = remaining
             systemScanned = true
             if (deleted < 0) {
-                resultDialog = ResultDialog("清空失败", "系统拒绝了删除请求，请检查通讯录写入权限。")
+                resultDialog = ResultDialog(
+                    context.getString(R.string.wipe_failed_title),
+                    context.getString(R.string.wipe_denied_message)
+                )
             } else {
                 resultDialog = ResultDialog(
-                    "系统通讯录已清空",
+                    context.getString(R.string.wipe_done_title),
                     buildString {
-                        appendLine("共删除 $deleted 条记录（含重复的、没有号码的、导入后新增的）")
-                        appendLine("本应用内的加密副本不受影响，仍然可以查和拨号")
+                        appendLine(context.resources.getQuantityString(R.plurals.wipe_deleted, deleted, deleted))
+                        appendLine(context.getString(R.string.wipe_copy_kept))
                         if (remaining > 0) {
                             appendLine()
-                            appendLine("系统里仍有 $remaining 人没删掉，通常来自只读账户（如企业目录、SIM 卡），需要到系统设置里手动处理。")
+                            appendLine(context.resources.getQuantityString(R.plurals.wipe_remaining, remaining, remaining))
                         }
                         appendLine()
-                        append("若联系人来自云端账户，同步适配器可能把删除同步到云端。")
+                        append(context.getString(R.string.wipe_cloud_note))
                     }
                 )
             }
@@ -721,14 +728,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 导出 CSV 备份（明文，仅用于自备份，导出后请自行保管） */
     fun exportCsv(uri: Uri) {
-        val context = getApplication<Application>()
         val all = _contacts.value
         if (all.isEmpty()) {
-            toast = "通讯录为空，无需导出"
+            toast = context.getString(R.string.err_empty_export)
             return
         }
         busy = true
-        busyText = "正在导出备份…"
+        busyText = context.getString(R.string.busy_export_backup)
         viewModelScope.launch {
             val count = withContext(Dispatchers.IO) {
                 runCatching { SystemContacts.exportCsv(context, uri, all) }.getOrDefault(-1)
@@ -736,11 +742,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             busy = false
             busyText = ""
             if (count < 0) {
-                toast = "导出失败"
+                toast = context.getString(R.string.toast_export_failed)
             } else {
                 resultDialog = ResultDialog(
-                    "备份已导出",
-                    "共导出 $count 条联系人。\n\n⚠️ CSV 是明文文件，请存放在安全位置，用完及时删除。"
+                    context.getString(R.string.backup_done_title),
+                    context.resources.getQuantityString(R.plurals.backup_done_message, count, count)
                 )
             }
         }
@@ -754,7 +760,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     private val PAGE_SIZE = 200
 
     fun loadSms(append: Boolean = false) {
-        val context = getApplication<Application>()
         if (!PermissionUtil.canReadSms(context)) {
             smsLoaded = true
             smsMessages = emptyList()
@@ -778,14 +783,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 从系统导入短信到加密库，按系统短信 id 去重，重复导入只补新的 */
     fun importSms() {
-        val context = getApplication<Application>()
         if (!PermissionUtil.canReadSms(context)) {
-            toast = "需要短信读取权限"
+            toast = context.getString(R.string.err_read_sms)
             return
         }
         if (busy) return
         busy = true
-        busyText = "正在读取系统短信…"
+        busyText = context.getString(R.string.busy_read_sms)
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
@@ -830,17 +834,22 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             outcome.onSuccess { (total, inserted, skipped) ->
                 loadSms()
                 resultDialog = ResultDialog(
-                    "短信导入完成",
+                    context.getString(R.string.sms_import_done_title),
                     buildString {
-                        appendLine("系统短信共 $total 条")
-                        appendLine("本次新增导入 $inserted 条")
-                        if (skipped > 0) appendLine("已导入过，跳过 $skipped 条")
+                        appendLine(context.resources.getQuantityString(R.plurals.sms_import_total, total, total))
+                        appendLine(context.resources.getQuantityString(R.plurals.sms_import_added, inserted, inserted))
+                        if (skipped > 0) {
+                            appendLine(context.resources.getQuantityString(R.plurals.sms_import_skipped, skipped, skipped))
+                        }
                         appendLine()
-                        append("已用会话密钥 AES-256-GCM 加密写入本机数据库。")
+                        append(context.getString(R.string.sms_import_encrypted))
                     }
                 )
             }.onFailure {
-                resultDialog = ResultDialog("短信导入失败", it.message ?: "读取系统短信时出错")
+                resultDialog = ResultDialog(
+                    context.getString(R.string.sms_import_failed_title),
+                    it.message ?: context.getString(R.string.err_read_system_sms)
+                )
             }
         }
     }
@@ -856,14 +865,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     /** 清空系统短信。Android 4.4+ 需要默认短信应用身份，可能删不掉，如实回报 */
     fun doWipeSms() {
         confirmWipeSms = false
-        val context = getApplication<Application>()
         if (!PermissionUtil.canWriteSms(context)) {
-            toast = "需要短信写入权限"
+            toast = context.getString(R.string.err_write_sms)
             return
         }
         if (busy) return
         busy = true
-        busyText = "正在清空系统短信…"
+        busyText = context.getString(R.string.busy_wipe_sms)
         viewModelScope.launch {
             val deleted = withContext(Dispatchers.IO) {
                 runCatching { SystemSms.deleteAll(context) }.getOrDefault(-1)
@@ -876,21 +884,18 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             systemSmsCount = remaining
             if (deleted < 0) {
                 resultDialog = ResultDialog(
-                    "系统拒绝了删除请求",
-                    "Android 4.4 起，只有「默认短信应用」才能删除短信。\n\n" +
-                        "· 可以把本应用设为默认短信应用后再试\n" +
-                        "· 或者在系统短信应用里手动清空\n\n" +
-                        "本应用内的加密副本不受影响，仍然可以查看。"
+                    context.getString(R.string.sms_wipe_denied_title),
+                    context.getString(R.string.sms_wipe_denied_message)
                 )
             } else {
                 resultDialog = ResultDialog(
-                    "系统短信已清空",
+                    context.getString(R.string.sms_wipe_done_title),
                     buildString {
-                        appendLine("共删除 $deleted 条")
-                        appendLine("本应用内的加密副本不受影响")
+                        appendLine(context.resources.getQuantityString(R.plurals.sms_wipe_deleted, deleted, deleted))
+                        appendLine(context.getString(R.string.sms_wipe_copy_kept))
                         if (remaining > 0) {
                             appendLine()
-                            appendLine("系统里仍剩 $remaining 条（部分短信属于系统账户，无法删除）。")
+                            appendLine(context.resources.getQuantityString(R.plurals.sms_wipe_remaining, remaining, remaining))
                         }
                     }
                 )
@@ -912,7 +917,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             archiveRepo.smsTable.deleteAll()
             smsMessages = emptyList()
-            toast = "本应用的短信副本已清空"
+            toast = context.getString(R.string.toast_sms_cleared)
         }
     }
 
@@ -925,19 +930,18 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 把本应用里的短信写回系统 */
     fun exportSmsToSystem() {
-        val context = getApplication<Application>()
         if (!PermissionUtil.canWriteSms(context)) {
-            toast = "需要短信写入权限"
+            toast = context.getString(R.string.err_write_sms)
             return
         }
         val list = smsMessages
         if (list.isEmpty()) {
-            toast = "本应用里还没有短信"
+            toast = context.getString(R.string.err_no_sms)
             return
         }
         if (busy) return
         busy = true
-        busyText = "正在导出短信到系统…"
+        busyText = context.getString(R.string.busy_export_sms)
         viewModelScope.launch {
             val summary = withContext(Dispatchers.IO) {
                 runCatching { SystemSms.exportToSystem(context, list) }
@@ -946,30 +950,36 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             busyText = ""
             summary.onSuccess { s ->
                 resultDialog = ResultDialog(
-                    "短信导出完成",
+                    context.getString(R.string.sms_export_done_title),
                     buildString {
-                        appendLine("写入系统 $s.created 条")
-                        if (s.skippedExisting > 0) appendLine("系统已有相同短信，跳过 $s.skippedExisting 条")
-                        if (s.failed > 0) appendLine("写入失败 $s.failed 条（系统拒绝了请求）")
+                        appendLine(context.resources.getQuantityString(R.plurals.sms_export_created, s.created, s.created))
+                        if (s.skippedExisting > 0) {
+                            appendLine(context.resources.getQuantityString(R.plurals.sms_export_skipped, s.skippedExisting, s.skippedExisting))
+                        }
+                        if (s.failed > 0) {
+                            appendLine(context.resources.getQuantityString(R.plurals.sms_export_failed_count, s.failed, s.failed))
+                        }
                         appendLine()
-                        append("本应用内的加密副本保持不变。")
+                        append(context.getString(R.string.sms_export_copy_unchanged))
                     }
                 )
             }.onFailure {
-                resultDialog = ResultDialog("导出失败", it.message ?: "写入系统短信时出错")
+                resultDialog = ResultDialog(
+                    context.getString(R.string.export_failed_title),
+                    it.message ?: context.getString(R.string.err_write_system_sms)
+                )
             }
         }
     }
 
     fun exportSmsCsv(uri: Uri) {
-        val context = getApplication<Application>()
         val list = smsMessages
         if (list.isEmpty()) {
-            toast = "没有短信可导出"
+            toast = context.getString(R.string.err_no_sms_export)
             return
         }
         busy = true
-        busyText = "正在导出短信备份…"
+        busyText = context.getString(R.string.busy_export_sms_backup)
         viewModelScope.launch {
             val count = withContext(Dispatchers.IO) {
                 runCatching { SystemSms.exportCsv(context, uri, list) }.getOrDefault(-1)
@@ -977,11 +987,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             busy = false
             busyText = ""
             if (count < 0) {
-                toast = "导出失败"
+                toast = context.getString(R.string.toast_export_failed)
             } else {
                 resultDialog = ResultDialog(
-                    "短信备份已导出",
-                    "共导出 $count 条短信。\n\n⚠️ CSV 是明文文件，请存放在安全位置，用完及时删除。"
+                    context.getString(R.string.sms_backup_done_title),
+                    context.resources.getQuantityString(R.plurals.sms_backup_done_message, count, count)
                 )
             }
         }
@@ -990,7 +1000,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     // ————————————————— 通话记录备份 —————————————————
 
     fun loadCallLog(append: Boolean = false) {
-        val context = getApplication<Application>()
         if (!PermissionUtil.canReadCallLog(context)) {
             callLogLoaded = true
             callRecords = emptyList()
@@ -1011,14 +1020,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 从系统导入通话记录到加密库 */
     fun importCallLog() {
-        val context = getApplication<Application>()
         if (!PermissionUtil.canReadCallLog(context)) {
-            toast = "需要通话记录读取权限"
+            toast = context.getString(R.string.err_read_calllog)
             return
         }
         if (busy) return
         busy = true
-        busyText = "正在读取系统通话记录…"
+        busyText = context.getString(R.string.busy_read_calllog)
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
@@ -1061,17 +1069,22 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             outcome.onSuccess { (total, inserted, skipped) ->
                 loadCallLog()
                 resultDialog = ResultDialog(
-                    "通话记录导入完成",
+                    context.getString(R.string.call_import_done_title),
                     buildString {
-                        appendLine("系统通话记录共 $total 条")
-                        appendLine("本次新增导入 $inserted 条")
-                        if (skipped > 0) appendLine("已导入过，跳过 $skipped 条")
+                        appendLine(context.resources.getQuantityString(R.plurals.call_import_total, total, total))
+                        appendLine(context.resources.getQuantityString(R.plurals.call_import_added, inserted, inserted))
+                        if (skipped > 0) {
+                            appendLine(context.resources.getQuantityString(R.plurals.call_import_skipped, skipped, skipped))
+                        }
                         appendLine()
-                        append("已用会话密钥 AES-256-GCM 加密写入本机数据库。")
+                        append(context.getString(R.string.call_import_encrypted))
                     }
                 )
             }.onFailure {
-                resultDialog = ResultDialog("导入失败", it.message ?: "读取通话记录时出错")
+                resultDialog = ResultDialog(
+                    context.getString(R.string.import_failed_title),
+                    it.message ?: context.getString(R.string.err_read_system_calls)
+                )
             }
         }
     }
@@ -1087,14 +1100,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     /** 清空系统通话记录。普通应用没有 WRITE_CALL_LOG，大概率被系统拒绝 */
     fun doWipeCalls() {
         confirmWipeCalls = false
-        val context = getApplication<Application>()
         if (!PermissionUtil.canWriteCallLog(context)) {
-            toast = "系统不允许普通应用删除通话记录"
+            toast = context.getString(R.string.err_calllog_not_allowed)
             return
         }
         if (busy) return
         busy = true
-        busyText = "正在清空系统通话记录…"
+        busyText = context.getString(R.string.busy_wipe_calllog)
         viewModelScope.launch {
             val deleted = withContext(Dispatchers.IO) {
                 runCatching { SystemCallLog.deleteAll(context) }.getOrDefault(-1)
@@ -1107,16 +1119,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             systemCallCount = remaining
             if (deleted < 0 || remaining > 0) {
                 resultDialog = ResultDialog(
-                    "系统拒绝了删除请求",
-                    "Android 对通话记录的删除权限只授予系统应用，普通 App 无法清空。\n\n" +
-                        "· 可以在手机自带「电话」App 里手动删除\n" +
-                        "· 或到 设置 → 应用 → 电话 → 清除数据\n\n" +
-                        "本应用内的加密副本不受影响。"
+                    context.getString(R.string.call_wipe_denied_title),
+                    context.getString(R.string.call_wipe_denied_message)
                 )
             } else {
                 resultDialog = ResultDialog(
-                    "系统通话记录已清空",
-                    "共删除 $deleted 条。本应用内的加密副本不受影响。"
+                    context.getString(R.string.call_wipe_done_title),
+                    context.resources.getQuantityString(R.plurals.call_wipe_deleted, deleted, deleted)
                 )
             }
         }
@@ -1135,7 +1144,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             archiveRepo.callTable.deleteAll()
             callRecords = emptyList()
-            toast = "本应用的通话记录副本已清空"
+            toast = context.getString(R.string.toast_call_cleared)
         }
     }
 
@@ -1147,14 +1156,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun exportCallsCsv(uri: Uri) {
-        val context = getApplication<Application>()
         val list = callRecords
         if (list.isEmpty()) {
-            toast = "没有通话记录可导出"
+            toast = context.getString(R.string.err_no_calls_export)
             return
         }
         busy = true
-        busyText = "正在导出通话记录备份…"
+        busyText = context.getString(R.string.busy_export_calls_backup)
         viewModelScope.launch {
             val count = withContext(Dispatchers.IO) {
                 runCatching { SystemCallLog.exportCsv(context, uri, list) }.getOrDefault(-1)
@@ -1162,18 +1170,17 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             busy = false
             busyText = ""
             if (count < 0) {
-                toast = "导出失败"
+                toast = context.getString(R.string.toast_export_failed)
             } else {
                 resultDialog = ResultDialog(
-                    "通话记录备份已导出",
-                    "共导出 $count 条记录。\n\n⚠️ CSV 是明文文件，请存放在安全位置，用完及时删除。"
+                    context.getString(R.string.call_backup_done_title),
+                    context.resources.getQuantityString(R.plurals.call_backup_done_message, count, count)
                 )
             }
         }
     }
 
     fun refreshCallState() {
-        val context = getApplication<Application>()
         overlayAllowed = PermissionUtil.canDrawOverlays(context)
         screeningRoleHeld = PermissionUtil.hasScreeningRole(context)
     }
@@ -1187,13 +1194,22 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 按筛选条件过滤，并生成「收藏 / 字母分组」列表结构 */
     fun buildSections(all: List<Contact>, rawQuery: String, filter: String?): List<ContactSection> {
+        // 分组在库里是内部键，显示与搜索都要用本地化后的文案
+        val groupCache = HashMap<String, String>()
+        fun groupText(raw: String): String =
+            groupCache.getOrPut(raw) { Labels.groupDisplay(context, raw) }
+        val dupLabel = context.getString(R.string.tag_duplicate)
+
         val filtered = all.filter { contact ->
             val passFilter = when (filter) {
                 null -> true
                 FAVORITE_FILTER -> contact.favorite
                 else -> contact.groupName == filter
             }
-            passFilter && PinyinUtil.matches(contact, rawQuery)
+            val extras = ArrayList<String>(2)
+            if (contact.groupName.isNotBlank()) extras.add(groupText(contact.groupName))
+            if (contact.duplicate) extras.add(dupLabel)
+            passFilter && PinyinUtil.matches(contact, rawQuery, extras)
         }
         if (filtered.isEmpty()) return emptyList()
 
@@ -1201,7 +1217,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         val favorites = filtered.filter { it.favorite }
             .sortedBy { PinyinUtil.initials(it.name) }
         if (favorites.isNotEmpty()) {
-            sections += ContactSection("★ 收藏", favorites)
+            sections += ContactSection(context.getString(R.string.home_section_favorites), favorites)
         }
         filtered.filter { !it.favorite }
             .groupBy { PinyinUtil.bucket(it.name) }

@@ -3,6 +3,7 @@ package com.wb.contacts.system
 import android.content.Context
 import android.net.Uri
 import android.provider.CallLog
+import com.wb.contacts.R
 import com.wb.contacts.data.CallRecord
 
 /**
@@ -97,14 +98,14 @@ object SystemCallLog {
         val stream = context.contentResolver.openOutputStream(uri) ?: return -1
         stream.bufferedWriter(Charsets.UTF_8).use { writer ->
             writer.write("\uFEFF")
-            writer.write("时间,号码,姓名,类型,时长(秒)")
+            writer.write(context.getString(R.string.csv_calls_header))
             writer.newLine()
             records.forEach { r ->
                 val row = listOf(
                     formatTime(r.date),
                     r.number,
                     r.contactName,
-                    r.typeLabel(),
+                    r.typeLabel(context),
                     r.duration.toString()
                 )
                 writer.write(row.joinToString(",") { escape(it) })

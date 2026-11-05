@@ -3,6 +3,7 @@ package com.wb.contacts.system
 import android.content.Context
 import android.net.Uri
 import android.provider.Telephony
+import com.wb.contacts.R
 import com.wb.contacts.data.SmsMessage
 
 /**
@@ -180,15 +181,17 @@ object SystemSms {
         val stream = context.contentResolver.openOutputStream(uri) ?: return -1
         stream.bufferedWriter(Charsets.UTF_8).use { writer ->
             writer.write("\uFEFF")
-            writer.write("时间,号码,方向,状态,已读,内容")
+            writer.write(context.getString(R.string.csv_sms_header))
             writer.newLine()
             messages.forEach { m ->
                 val row = listOf(
                     formatTime(m.date),
                     m.address,
-                    if (m.isOutgoing()) "发出" else "收到",
-                    m.typeLabel(),
-                    if (m.read) "是" else "否",
+                    context.getString(
+                        if (m.isOutgoing()) R.string.sms_direction_out else R.string.sms_direction_in
+                    ),
+                    m.typeLabel(context),
+                    context.getString(if (m.read) R.string.yes else R.string.no),
                     m.body
                 )
                 writer.write(row.joinToString(",") { escape(it) })

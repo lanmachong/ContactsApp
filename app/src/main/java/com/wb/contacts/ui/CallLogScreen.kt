@@ -48,8 +48,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wb.contacts.R
 import com.wb.contacts.data.CallRecord
 import com.wb.contacts.util.PermissionUtil
 import java.text.SimpleDateFormat
@@ -88,9 +91,12 @@ fun CallLogScreen(vm: ContactsViewModel) {
             TopAppBar(
                 title = {
                     Column {
-                        Text("通话记录备份", fontWeight = FontWeight.Bold)
                         Text(
-                            "${vm.callRecords.size} 条已加密保存",
+                            stringResource(R.string.calllog_title),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            pluralStringResource(R.plurals.calllog_subtitle, vm.callRecords.size, vm.callRecords.size),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -98,7 +104,10 @@ fun CallLogScreen(vm: ContactsViewModel) {
                 },
                 navigationIcon = {
                     IconButton(onClick = vm::back) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -117,9 +126,8 @@ fun CallLogScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(8.dp))
 
             InfoCard(
-                "把通话记录搬进加密库",
-                "整条记录用 AES-256-GCM 加密后写入本机数据库，号码、时长全部是密文。" +
-                    "系统里的原记录可以随后清掉。"
+                stringResource(R.string.calllog_info_title),
+                stringResource(R.string.calllog_info_desc)
             )
 
             Spacer(Modifier.height(16.dp))
@@ -128,8 +136,14 @@ fun CallLogScreen(vm: ContactsViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                StatPill("系统记录", "${vm.systemCallCount} 条")
-                StatPill("本应用", "${vm.callRecords.size} 条")
+                StatPill(
+                    stringResource(R.string.calllog_stat_system),
+                    pluralStringResource(R.plurals.calllog_stat_count, vm.systemCallCount, vm.systemCallCount)
+                )
+                StatPill(
+                    stringResource(R.string.calllog_stat_local),
+                    pluralStringResource(R.plurals.calllog_stat_count, vm.callRecords.size, vm.callRecords.size)
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -148,13 +162,21 @@ fun CallLogScreen(vm: ContactsViewModel) {
                             )
                         },
                         modifier = Modifier.weight(1f)
-                    ) { Text("授予通话记录权限") }
+                    ) { Text(stringResource(R.string.calllog_grant_permission)) }
                 } else {
                     Button(
                         onClick = { vm.importCallLog() },
                         enabled = !vm.busy,
                         modifier = Modifier.weight(1f)
-                    ) { Text(if (vm.busy) "导入中…" else "导入系统记录") }
+                    ) {
+                        Text(
+                            if (vm.busy) {
+                                stringResource(R.string.action_importing)
+                            } else {
+                                stringResource(R.string.calllog_import_system)
+                            }
+                        )
+                    }
                     OutlinedButton(
                         onClick = {
                             val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault())
@@ -163,15 +185,14 @@ fun CallLogScreen(vm: ContactsViewModel) {
                         },
                         enabled = vm.callRecords.isNotEmpty() && !vm.busy,
                         modifier = Modifier.weight(1f)
-                    ) { Text("导出 CSV") }
+                    ) { Text(stringResource(R.string.calllog_export_csv)) }
                 }
             }
 
             if (!canRead) {
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "通话记录属于敏感数据，只有你授权后本应用才会读取。" +
-                        "所有数据仅存在这台手机上，不上传、不联网。",
+                    stringResource(R.string.calllog_privacy_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -180,26 +201,26 @@ fun CallLogScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "管理",
+                stringResource(R.string.calllog_section_manage),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(8.dp))
 
             ActionRow(
-                title = "清空系统通话记录",
+                title = stringResource(R.string.calllog_action_wipe_system),
                 desc = if (canWrite) {
-                    "删除手机里的全部通话记录，本应用的加密副本保留"
+                    stringResource(R.string.calllog_action_wipe_system_desc)
                 } else {
-                    "系统只把删除权限授予系统应用，普通 App 会被拒绝；可在自带电话 App 里手动清"
+                    stringResource(R.string.calllog_action_wipe_system_desc_denied)
                 },
                 enabled = canWrite && !vm.busy,
                 danger = true,
                 onClick = { vm.requestWipeCalls() }
             )
             ActionRow(
-                title = "清空本应用通话记录副本",
-                desc = "删除本应用保存的通话记录副本，系统里的原记录不受影响",
+                title = stringResource(R.string.calllog_action_clear_local),
+                desc = stringResource(R.string.calllog_action_clear_local_desc),
                 enabled = vm.callRecords.isNotEmpty() && !vm.busy,
                 danger = true,
                 onClick = { vm.requestClearCalls() }
@@ -208,13 +229,13 @@ fun CallLogScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(16.dp))
 
             Text(
-                "已备份的通话记录",
+                stringResource(R.string.calllog_section_backed_up),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "点击号码可直接拨号。列表按导入顺序倒序展示，最多加载 200 条。",
+                stringResource(R.string.calllog_list_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -227,7 +248,11 @@ fun CallLogScreen(vm: ContactsViewModel) {
                 ) { androidx.compose.material3.CircularProgressIndicator() }
 
                 vm.callRecords.isEmpty() -> EmptyHint(
-                    if (canRead) "还没有备份任何通话记录" else "需要通话记录读取权限才能显示内容"
+                    if (canRead) {
+                        stringResource(R.string.calllog_empty_none)
+                    } else {
+                        stringResource(R.string.calllog_empty_need_permission)
+                    }
                 )
 
                 else -> {
@@ -247,7 +272,7 @@ fun CallLogScreen(vm: ContactsViewModel) {
                             onClick = { vm.loadCallLog(append = true) },
                             enabled = !vm.busy,
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("加载更多") }
+                        ) { Text(stringResource(R.string.action_load_more)) }
                     }
                 }
             }
@@ -276,7 +301,9 @@ private fun CallRecordRow(record: CallRecord, onDelete: () -> Unit) {
         record.isIncoming() -> Color(0xFF15803D)
         else -> Color(0xFF1D4ED8)
     }
-    val displayName = record.contactName.ifBlank { record.number.ifBlank { "未知号码" } }
+    val displayName = record.contactName.ifBlank {
+        record.number.ifBlank { stringResource(R.string.calllog_unknown_number) }
+    }
 
     Column {
         Row(
@@ -310,8 +337,8 @@ private fun CallRecordRow(record: CallRecord, onDelete: () -> Unit) {
                             append(record.number)
                             append(" · ")
                         }
-                        append(record.typeLabel())
-                        val d = record.durationLabel()
+                        append(record.typeLabel(context))
+                        val d = record.durationLabel(context)
                         if (d.isNotEmpty()) {
                             append(" · ")
                             append(d)
@@ -330,7 +357,7 @@ private fun CallRecordRow(record: CallRecord, onDelete: () -> Unit) {
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "删除",
+                    contentDescription = stringResource(R.string.action_delete),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.outline
                 )

@@ -40,9 +40,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wb.contacts.R
 import com.wb.contacts.data.Contact
+import com.wb.contacts.util.Labels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,28 +55,34 @@ fun ContactDetailScreen(contact: Contact, vm: ContactsViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("联系人") },
+                title = { Text(stringResource(R.string.detail_title)) },
                 navigationIcon = {
                     IconButton(onClick = vm::back) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back)
+                        )
                     }
                 },
                 actions = {
                     IconButton(onClick = { vm.toggleFavorite(contact) }) {
                         Icon(
                             imageVector = if (contact.favorite) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = "收藏",
+                            contentDescription = stringResource(R.string.detail_favorite),
                             tint = if (contact.favorite) Color(0xFFF5A623)
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     IconButton(onClick = { vm.openEdit(contact.id) }) {
-                        Icon(Icons.Default.Edit, contentDescription = "编辑")
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = stringResource(R.string.detail_edit)
+                        )
                     }
                     IconButton(onClick = { vm.requestDelete(contact.id) }) {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = "删除",
+                            contentDescription = stringResource(R.string.action_delete),
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
@@ -103,8 +112,12 @@ fun ContactDetailScreen(contact: Contact, vm: ContactsViewModel) {
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
-                val subtitle = listOf(contact.groupName, contact.tags)
-                    .filter { it.isNotBlank() }.joinToString(" · ")
+                val subtitle = listOf(
+                    Labels.groupDisplay(context, contact.groupName),
+                    contact.tags,
+                    // 重复标记是独立字段，显示时补上本地化文案
+                    if (contact.duplicate) stringResource(R.string.tag_duplicate) else ""
+                ).filter { it.isNotBlank() }.joinToString(" · ")
                 if (subtitle.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -117,11 +130,11 @@ fun ContactDetailScreen(contact: Contact, vm: ContactsViewModel) {
 
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 if (contact.phone.isNotBlank()) {
-                    PhoneCard(label = "手机", number = contact.phone)
+                    PhoneCard(label = stringResource(R.string.detail_phone_label), number = contact.phone)
                 }
                 if (contact.phone2.isNotBlank()) {
                     Spacer(Modifier.height(10.dp))
-                    PhoneCard(label = "备用", number = contact.phone2)
+                    PhoneCard(label = stringResource(R.string.detail_phone2_label), number = contact.phone2)
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -133,18 +146,18 @@ fun ContactDetailScreen(contact: Contact, vm: ContactsViewModel) {
                         ) {
                             Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("拨号")
+                            Text(stringResource(R.string.action_dial))
                         }
                         OutlinedButton(
                             onClick = { ContactActions.sms(context, contact.phone) },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("发短信")
+                            Text(stringResource(R.string.detail_send_sms))
                         }
                     }
                 } else {
                     Text(
-                        text = "这个联系人还没有号码（导入时系统里只有姓名或邮箱）。点右上角编辑补一个即可拨号。",
+                        text = stringResource(R.string.detail_no_phone),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -153,7 +166,7 @@ fun ContactDetailScreen(contact: Contact, vm: ContactsViewModel) {
                 if (contact.note.isNotBlank()) {
                     Spacer(Modifier.height(24.dp))
                     Text(
-                        text = "备注",
+                        text = stringResource(R.string.detail_note_label),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -173,7 +186,7 @@ fun ContactDetailScreen(contact: Contact, vm: ContactsViewModel) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    text = "数据以 AES-256-GCM 加密保存在本机，密钥由系统 Keystore 保管。来电时会显示这个联系人的姓名。",
+                    text = stringResource(R.string.detail_footer),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -205,7 +218,11 @@ private fun PhoneCard(label: String, number: String) {
             Text(number, style = MaterialTheme.typography.titleMedium)
         }
         IconButton(onClick = { ContactActions.dial(context, number) }) {
-            Icon(Icons.Default.Phone, contentDescription = "拨号", tint = MaterialTheme.colorScheme.primary)
+            Icon(
+                Icons.Default.Phone,
+                contentDescription = stringResource(R.string.action_dial),
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
         Box(
             modifier = Modifier
@@ -214,7 +231,7 @@ private fun PhoneCard(label: String, number: String) {
                 .padding(horizontal = 10.dp, vertical = 6.dp)
         ) {
             Text(
-                "复制",
+                stringResource(R.string.action_copy),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary
             )

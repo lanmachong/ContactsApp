@@ -23,10 +23,10 @@ object CallNotifier {
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "来电识别",
+            context.getString(R.string.notify_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "来电时显示联系人的悬浮窗提示"
+            description = context.getString(R.string.notify_channel_desc)
             setShowBadge(false)
         }
         manager.createNotificationChannel(channel)
@@ -44,8 +44,8 @@ object CallNotifier {
         )
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_call)
-            .setContentTitle("来电识别已开启")
-            .setContentText("来电时会显示姓名悬浮窗 · 已识别 $matched 个号码")
+            .setContentTitle(context.getString(R.string.notify_title))
+            .setContentText(context.resources.getQuantityString(R.plurals.notify_text, matched, matched))
             .setContentIntent(pending)
             .setOngoing(true)
             .setSilent(true)

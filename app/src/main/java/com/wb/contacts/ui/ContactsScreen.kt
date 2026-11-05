@@ -63,12 +63,16 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wb.contacts.R
 import com.wb.contacts.data.Contact
+import com.wb.contacts.util.Labels
 import com.wb.contacts.util.PinyinUtil
 
 @Composable
@@ -121,55 +125,64 @@ fun ContactsRoot(vm: ContactsViewModel) {
     if (vm.pendingDeleteId != null) {
         AlertDialog(
             onDismissRequest = vm::dismissDelete,
-            title = { Text("删除联系人") },
-            text = { Text("删除后无法恢复，确定继续吗？") },
+            title = { Text(stringResource(R.string.dialog_delete_title)) },
+            text = { Text(stringResource(R.string.dialog_delete_message)) },
             confirmButton = {
                 TextButton(onClick = vm::confirmDelete) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             },
-            dismissButton = { TextButton(onClick = vm::dismissDelete) { Text("取消") } }
+            dismissButton = {
+                TextButton(onClick = vm::dismissDelete) { Text(stringResource(R.string.action_cancel)) }
+            }
         )
     }
 
     if (vm.confirmClearAll) {
         AlertDialog(
             onDismissRequest = vm::dismissClearAll,
-            title = { Text("清空通讯录") },
-            text = { Text("将删除本机保存的全部联系人，且无法恢复。") },
+            title = { Text(stringResource(R.string.dialog_clear_title)) },
+            text = { Text(stringResource(R.string.dialog_clear_message)) },
             confirmButton = {
                 TextButton(onClick = vm::doClearAll) {
-                    Text("确认清空", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(R.string.action_confirm_clear),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             },
-            dismissButton = { TextButton(onClick = vm::dismissClearAll) { Text("取消") } }
+            dismissButton = {
+                TextButton(onClick = vm::dismissClearAll) { Text(stringResource(R.string.action_cancel)) }
+            }
         )
     }
 
     if (vm.confirmWipeAll) {
         AlertDialog(
             onDismissRequest = vm::dismissWipeAll,
-            title = { Text("清空系统通讯录") },
+            title = { Text(stringResource(R.string.dialog_wipe_all_title)) },
             text = {
                 val countText = if (vm.systemContactCount > 0) {
-                    "全部 ${vm.systemContactCount} 位联系人"
+                    pluralStringResource(R.plurals.dialog_wipe_all_count, vm.systemContactCount, vm.systemContactCount)
                 } else {
-                    "全部联系人"
+                    stringResource(R.string.dialog_wipe_all_count_any)
                 }
-                Text(
-                    "会删除系统通讯录里当前的$countText，" +
-                        "包括重复的、没有号码的、以及从没导入过的。\n\n" +
-                        "· 本应用内的加密副本不受影响，仍然可以查和拨号\n" +
-                        "· 此操作不可撤销，请确认已经导出 CSV 备份\n" +
-                        "· 云账户联系人的删除可能同步到云端"
-                )
+                Text(stringResource(R.string.dialog_wipe_all_message, countText))
             },
             confirmButton = {
                 TextButton(onClick = vm::doWipeAll) {
-                    Text("我已备份，全部删除", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(R.string.action_backed_up_delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             },
-            dismissButton = { TextButton(onClick = vm::dismissWipeAll) { Text("取消") } }
+            dismissButton = {
+                TextButton(onClick = vm::dismissWipeAll) { Text(stringResource(R.string.action_cancel)) }
+            }
         )
     }
 
@@ -179,77 +192,85 @@ fun ContactsRoot(vm: ContactsViewModel) {
             onDismissRequest = vm::dismissResult,
             title = { Text(result.title) },
             text = { Text(result.message) },
-            confirmButton = { TextButton(onClick = vm::dismissResult) { Text("知道了") } }
+            confirmButton = {
+                TextButton(onClick = vm::dismissResult) { Text(stringResource(R.string.action_ok)) }
+            }
         )
     }
 
     if (vm.confirmWipeSms) {
         AlertDialog(
             onDismissRequest = vm::dismissWipeSms,
-            title = { Text("清空系统短信") },
-            text = {
-                Text(
-                    "会删除手机短信应用里的全部短信。\n\n" +
-                        "· 本应用内的加密副本不受影响，仍然可以查看\n" +
-                        "· 此操作不可撤销，建议先导出 CSV 备份\n" +
-                        "· Android 4.4 起需本应用是默认短信应用才能删掉，否则系统会拒绝"
-                )
-            },
+            title = { Text(stringResource(R.string.dialog_wipe_sms_title)) },
+            text = { Text(stringResource(R.string.dialog_wipe_sms_message)) },
             confirmButton = {
                 TextButton(onClick = vm::doWipeSms) {
-                    Text("我已备份，全部删除", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(R.string.action_backed_up_delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             },
-            dismissButton = { TextButton(onClick = vm::dismissWipeSms) { Text("取消") } }
+            dismissButton = {
+                TextButton(onClick = vm::dismissWipeSms) { Text(stringResource(R.string.action_cancel)) }
+            }
         )
     }
 
     if (vm.confirmClearSms) {
         AlertDialog(
             onDismissRequest = vm::dismissClearSms,
-            title = { Text("清空本应用短信副本") },
-            text = { Text("将删除本机保存的全部短信副本，系统里的原短信不受影响，且无法恢复。") },
+            title = { Text(stringResource(R.string.dialog_clear_sms_title)) },
+            text = { Text(stringResource(R.string.dialog_clear_sms_message)) },
             confirmButton = {
                 TextButton(onClick = vm::doClearSms) {
-                    Text("确认清空", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(R.string.action_confirm_clear),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             },
-            dismissButton = { TextButton(onClick = vm::dismissClearSms) { Text("取消") } }
+            dismissButton = {
+                TextButton(onClick = vm::dismissClearSms) { Text(stringResource(R.string.action_cancel)) }
+            }
         )
     }
 
     if (vm.confirmWipeCalls) {
         AlertDialog(
             onDismissRequest = vm::dismissWipeCalls,
-            title = { Text("清空系统通话记录") },
-            text = {
-                Text(
-                    "会尝试删除手机里的全部通话记录。\n\n" +
-                        "· 本应用内的加密副本不受影响\n" +
-                        "· 此操作不可撤销，建议先导出 CSV 备份\n" +
-                        "· 系统通常只把删除权限授予系统应用，普通 App 会被拒绝"
-                )
-            },
+            title = { Text(stringResource(R.string.dialog_wipe_calls_title)) },
+            text = { Text(stringResource(R.string.dialog_wipe_calls_message)) },
             confirmButton = {
                 TextButton(onClick = vm::doWipeCalls) {
-                    Text("我已备份，全部删除", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(R.string.action_backed_up_delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             },
-            dismissButton = { TextButton(onClick = vm::dismissWipeCalls) { Text("取消") } }
+            dismissButton = {
+                TextButton(onClick = vm::dismissWipeCalls) { Text(stringResource(R.string.action_cancel)) }
+            }
         )
     }
 
     if (vm.confirmClearCalls) {
         AlertDialog(
             onDismissRequest = vm::dismissClearCalls,
-            title = { Text("清空本应用通话记录副本") },
-            text = { Text("将删除本机保存的全部通话记录副本，系统里的原记录不受影响，且无法恢复。") },
+            title = { Text(stringResource(R.string.dialog_clear_calls_title)) },
+            text = { Text(stringResource(R.string.dialog_clear_calls_message)) },
             confirmButton = {
                 TextButton(onClick = vm::doClearCalls) {
-                    Text("确认清空", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(R.string.action_confirm_clear),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             },
-            dismissButton = { TextButton(onClick = vm::dismissClearCalls) { Text("取消") } }
+            dismissButton = {
+                TextButton(onClick = vm::dismissClearCalls) { Text(stringResource(R.string.action_cancel)) }
+            }
         )
     }
 }
@@ -280,10 +301,15 @@ fun HomeScreen(vm: ContactsViewModel) {
                     TopAppBar(
                         title = {
                             Column {
-                                Text("通讯录", fontWeight = FontWeight.Bold)
                                 Text(
-                                    "${contacts.size} 位联系人 · 本地加密存储" +
-                                        if (versionName.isNotBlank()) " · v$versionName" else "",
+                                    stringResource(R.string.home_title),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    pluralStringResource(R.plurals.home_subtitle, contacts.size, contacts.size) +
+                                        if (versionName.isNotBlank()) {
+                                            stringResource(R.string.home_subtitle_version, versionName)
+                                        } else "",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -291,42 +317,48 @@ fun HomeScreen(vm: ContactsViewModel) {
                         },
                         actions = {
                             IconButton(onClick = { vm.enterSearch(true) }) {
-                                Icon(Icons.Default.Search, contentDescription = "搜索")
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = stringResource(R.string.action_search)
+                                )
                             }
                             Box {
                                 IconButton(onClick = { menuExpanded = true }) {
-                                    Icon(Icons.Default.MoreVert, contentDescription = "更多")
+                                    Icon(
+                                        Icons.Default.MoreVert,
+                                        contentDescription = stringResource(R.string.action_more)
+                                    )
                                 }
                                 DropdownMenu(
                                     expanded = menuExpanded,
                                     onDismissRequest = { menuExpanded = false }
                                 ) {
                                     DropdownMenuItem(
-                                        text = { Text("从系统通讯录导入") },
+                                        text = { Text(stringResource(R.string.home_menu_import)) },
                                         onClick = { menuExpanded = false; vm.openImport() }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("短信备份") },
+                                        text = { Text(stringResource(R.string.home_menu_sms)) },
                                         onClick = { menuExpanded = false; vm.openSms() }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("通话记录备份") },
+                                        text = { Text(stringResource(R.string.home_menu_calllog)) },
                                         onClick = { menuExpanded = false; vm.openCallLog() }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("来电识别悬浮窗") },
+                                        text = { Text(stringResource(R.string.home_menu_callid)) },
                                         onClick = { menuExpanded = false; vm.openCallSettings() }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("检测重复联系人") },
+                                        text = { Text(stringResource(R.string.home_menu_duplicates)) },
                                         onClick = { menuExpanded = false; vm.markDuplicates() }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("清空本应用通讯录") },
+                                        text = { Text(stringResource(R.string.home_menu_clear_local)) },
                                         onClick = { menuExpanded = false; vm.requestClearAll() }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("关于") },
+                                        text = { Text(stringResource(R.string.home_menu_about)) },
                                         onClick = { menuExpanded = false; vm.openAbout() }
                                     )
                                 }
@@ -340,7 +372,10 @@ fun HomeScreen(vm: ContactsViewModel) {
             },
             floatingActionButton = {
                 FloatingActionButton(onClick = { vm.openEdit(null) }) {
-                    Icon(Icons.Default.Add, contentDescription = "新增联系人")
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = stringResource(R.string.action_add_contact)
+                    )
                 }
             }
         ) { padding ->
@@ -406,7 +441,7 @@ fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> 
             TextField(
                 value = query,
                 onValueChange = onQueryChange,
-                placeholder = { Text("姓名 / 号码 / 拼音首字母") },
+                placeholder = { Text(stringResource(R.string.home_search_hint)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                 colors = TextFieldDefaults.colors(
@@ -420,13 +455,19 @@ fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> 
         },
         navigationIcon = {
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "关闭搜索")
+                Icon(
+                    Icons.Default.ArrowBack,
+                    contentDescription = stringResource(R.string.home_close_search)
+                )
             }
         },
         actions = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Default.Close, contentDescription = "清空")
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = stringResource(R.string.action_clear)
+                    )
                 }
             }
         },
@@ -440,6 +481,7 @@ fun SearchTopBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterRow(groups: List<String>, selected: String?, onSelect: (String?) -> Unit) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -451,12 +493,12 @@ fun FilterRow(groups: List<String>, selected: String?, onSelect: (String?) -> Un
         FilterChip(
             selected = selected == null,
             onClick = { onSelect(null) },
-            label = { Text("全部") }
+            label = { Text(stringResource(R.string.home_filter_all)) }
         )
         FilterChip(
             selected = selected == ContactsViewModel.FAVORITE_FILTER,
             onClick = { onSelect(ContactsViewModel.FAVORITE_FILTER) },
-            label = { Text("收藏") },
+            label = { Text(stringResource(R.string.home_filter_favorite)) },
             leadingIcon = {
                 Icon(
                     Icons.Default.Star,
@@ -469,7 +511,8 @@ fun FilterRow(groups: List<String>, selected: String?, onSelect: (String?) -> Un
             FilterChip(
                 selected = selected == group,
                 onClick = { onSelect(group) },
-                label = { Text(group) }
+                // 库里存的是内部键，这里翻译成当前语言的文案
+                label = { Text(Labels.groupDisplay(context, group)) }
             )
         }
     }
@@ -492,7 +535,12 @@ fun SectionHeader(title: String) {
 @Composable
 fun ContactRow(contact: Contact, onClick: () -> Unit, onToggleFavorite: () -> Unit) {
     val context = LocalContext.current
-    val meta = listOf(contact.groupName, contact.tags).filter { it.isNotBlank() }
+    val meta = listOf(
+        Labels.groupDisplay(context, contact.groupName),
+        contact.tags,
+        // 重复标记是独立字段，显示时补上本地化文案
+        if (contact.duplicate) stringResource(R.string.tag_duplicate) else ""
+    ).filter { it.isNotBlank() }
     Column {
         Row(
             modifier = Modifier
@@ -514,14 +562,14 @@ fun ContactRow(contact: Contact, onClick: () -> Unit, onToggleFavorite: () -> Un
                         Spacer(Modifier.width(6.dp))
                         Icon(
                             Icons.Default.Star,
-                            contentDescription = "已收藏",
+                            contentDescription = stringResource(R.string.home_favorited),
                             modifier = Modifier.size(14.dp),
                             tint = Color(0xFFF5A623)
                         )
                     }
                 }
                 Text(
-                    text = contact.phone.ifBlank { "无号码" },
+                    text = contact.phone.ifBlank { stringResource(R.string.home_no_phone) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
@@ -548,7 +596,7 @@ fun ContactRow(contact: Contact, onClick: () -> Unit, onToggleFavorite: () -> Un
                 IconButton(onClick = { ContactActions.dial(context, contact.phone) }) {
                     Icon(
                         Icons.Default.Phone,
-                        contentDescription = "拨号",
+                        contentDescription = stringResource(R.string.action_dial),
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -556,7 +604,7 @@ fun ContactRow(contact: Contact, onClick: () -> Unit, onToggleFavorite: () -> Un
             IconButton(onClick = onToggleFavorite) {
                 Icon(
                     imageVector = if (contact.favorite) Icons.Default.Star else Icons.Default.StarBorder,
-                    contentDescription = "切换收藏",
+                    contentDescription = stringResource(R.string.home_toggle_favorite),
                     tint = if (contact.favorite) Color(0xFFF5A623) else MaterialTheme.colorScheme.outline
                 )
             }
@@ -605,22 +653,30 @@ fun EmptyState(hasData: Boolean, onAdd: () -> Unit, onImport: () -> Unit) {
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                text = if (hasData) "没有匹配的联系人" else "通讯录还是空的",
+                text = if (hasData) {
+                    stringResource(R.string.home_empty_no_match)
+                } else {
+                    stringResource(R.string.home_empty_none)
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = if (hasData) "换个关键词或筛选条件试试" else "数据加密后只保存在这台手机上，不会上传",
+                text = if (hasData) {
+                    stringResource(R.string.home_empty_no_match_hint)
+                } else {
+                    stringResource(R.string.home_empty_none_hint)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(24.dp))
             androidx.compose.material3.Button(onClick = onImport) {
-                Text("从系统通讯录导入")
+                Text(stringResource(R.string.home_import_from_system))
             }
-            TextButton(onClick = onAdd) { Text("手动添加联系人") }
+            TextButton(onClick = onAdd) { Text(stringResource(R.string.home_add_manually)) }
         }
     }
 }
@@ -635,7 +691,7 @@ fun LoadingState() {
             androidx.compose.material3.CircularProgressIndicator()
             Spacer(Modifier.height(14.dp))
             Text(
-                "正在解密本地通讯录…",
+                stringResource(R.string.home_loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
