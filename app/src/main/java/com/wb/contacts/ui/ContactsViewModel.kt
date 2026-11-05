@@ -1,0 +1,1214 @@
+package com.wb.contacts.ui
+
+import android.app.Application
+import android.net.Uri
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.wb.contacts.ContactsApplication
+import com.wb.contacts.data.ArchiveRepository
+import com.wb.contacts.data.CallRecord
+import com.wb.contacts.data.Contact
+import com.wb.contacts.data.ContactsRepository
+import com.wb.contacts.data.SmsMessage
+import com.wb.contacts.system.SystemCallLog
+import com.wb.contacts.system.SystemContacts
+import com.wb.contacts.system.SystemSms
+import com.wb.contacts.util.PermissionUtil
+import com.wb.contacts.util.PhoneText
+import com.wb.contacts.util.PinyinUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+sealed interface Screen {
+    data object Home : Screen
+    data class Detail(val id: Long) : Screen
+    data class Edit(val id: Long?) : Screen
+
+    /** 导入 / 清理系统通讯录 */
+    data object Import : Screen
+
+    /** 来电识别悬浮窗设置 */
+    data object CallSettings : Screen
+
+    /** 短信备份 */
+    data object Sms : Screen
+
+    /** 通话记录备份 */
+    data object CallLog : Screen
+
+    /** 关于 */
+    data object About : Screen
+}
+
+data class ContactSection(val title: String, val items: List<Contact>)
+
+/** 导入结果汇总，直接用于结果弹窗文案 */
+data class ImportOutcome(
+    val total: Int,
+    val imported: Int,
+    val updated: Int,
+    val unchanged: Int,
+    val noPhone: Int,
+    val noRawId: Int,
+    val mergedDuplicates: Int
+) {
+    fun describe(): String = buildString {
+        if (total == 0) {
+            append("系统通讯录里没有读到联系人。请确认已授予通讯录读取权限。")
+            return@buildString
+        }
+        appendLine("系统通讯录共 $total 人")
+        appendLine("本次新增 $imported 人")
+        if (updated > 0) appendLine("补全 / 更新 $updated 人（系统里改过的姓名、号码已同步）")
+        if (unchanged > 0) appendLine("内容一致、无需变动 $unchanged 人")
+        if (mergedDuplicates > 0) appendLine("合并库内重复 $mergedDuplicates 条（同一人被导入过多次）")
+        if (noPhone > 0) appendLine("其中 $noPhone 人没有号码，只保存了姓名")
+        if (noRawId > 0) appendLine("有 $noRawId 人拿不到系统 ID，清理时按全量删除兜底")
+        appendLine()
+        append("已用 AES-256-GCM 加密写入本机数据库。")
+    }
+}
+
+class ContactsViewModel(app: Application) : AndroidViewModel(app) {
+
+    companion object {
+        const val FAVORITE_FILTER = "__favorite__"
+
+        /** 重复联系人标签，用户可直接搜索这个标签定位 */
+        const val TAG_DUPLICATE = "重复"
+
+        /** 标签分隔符 */
+        const val TAG_SEPARATOR = "，"
+    }
+
+    // 与 Application 共用同一个仓储实例，否则内存缓存不共享，
+    // 冷启动时来电索引预热和列表刷新会把整库各解密一遍，白白多等一两秒
+    private val repo: ContactsRepository =
+        (app as? ContactsApplication)?.repository ?: ContactsRepository(app)
+
+    /** 短信 / 通话记录的加密仓储，与 Application 共用实例 */
+    private val archiveRepo: ArchiveRepository =
+        (app as? ContactsApplication)?.archiveRepository ?: ArchiveRepository(app)
+
+    private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
+    val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
+
+    private val _groups = MutableStateFlow<List<String>>(emptyList())
+    val groups: StateFlow<List<String>> = _groups.asStateFlow()
+
+    var screen by mutableStateOf<Screen>(Screen.Home)
+        private set
+    var query by mutableStateOf("")
+        private set
+    var groupFilter by mutableStateOf<String?>(null)
+        private set
+    var searching by mutableStateOf(false)
+        private set
+    var pendingDeleteId by mutableStateOf<Long?>(null)
+        private set
+    var confirmClearAll by mutableStateOf(false)
+        private set
+    var toast by mutableStateOf<String?>(null)
+        private set
+
+    /** 首次加载是否已完成，避免「查不到联系人」被误判为已删除 */
+    var loaded by mutableStateOf(false)
+        private set
+
+    // ——— 导入 / 清理 ———
+    var systemContactCount by mutableStateOf(0)
+        private set
+    var systemScanned by mutableStateOf(false)
+        private set
+    var busy by mutableStateOf(false)
+        private set
+    var busyText by mutableStateOf("")
+        private set
+    var resultDialog by mutableStateOf<ResultDialog?>(null)
+        private set
+    var confirmWipeAll by mutableStateOf(false)
+        private set
+
+    // ——— 来电识别 ———
+    var callServiceRunning by mutableStateOf(false)
+        private set
+    var overlayAllowed by mutableStateOf(false)
+        private set
+    var screeningRoleHeld by mutableStateOf(false)
+        private set
+
+    // ——— 短信 / 通话记录 ———
+    var smsMessages by mutableStateOf<List<SmsMessage>>(emptyList())
+        private set
+    var callRecords by mutableStateOf<List<CallRecord>>(emptyList())
+        private set
+    var systemSmsCount by mutableStateOf(0)
+        private set
+    var systemCallCount by mutableStateOf(0)
+        private set
+    var smsLoaded by mutableStateOf(false)
+        private set
+    var callLogLoaded by mutableStateOf(false)
+        private set
+    var confirmWipeSms by mutableStateOf(false)
+        private set
+    var confirmWipeCalls by mutableStateOf(false)
+        private set
+    var confirmClearSms by mutableStateOf(false)
+        private set
+    var confirmClearCalls by mutableStateOf(false)
+        private set
+
+    data class ResultDialog(val title: String, val message: String)
+
+    init {
+        refresh()
+        refreshCallState()
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            val all = repo.getAll()
+            _contacts.value = all
+            _groups.value = all.map { it.groupName }.filter { it.isNotBlank() }.distinct().sorted()
+            // 通讯录一变，来电索引同步更新
+            (getApplication() as? ContactsApplication)?.let {
+                com.wb.contacts.call.CallerIndex.update(all)
+            }
+            loaded = true
+        }
+    }
+
+    // ————————————————— 导航 —————————————————
+
+    fun openDetail(id: Long) {
+        screen = Screen.Detail(id)
+    }
+
+    fun openEdit(id: Long?) {
+        screen = Screen.Edit(id)
+    }
+
+    fun openImport() {
+        screen = Screen.Import
+        scanSystemContacts()
+    }
+
+    fun openCallSettings() {
+        screen = Screen.CallSettings
+        refreshCallState()
+    }
+
+    fun openSms() {
+        screen = Screen.Sms
+        loadSms()
+    }
+
+    fun openCallLog() {
+        screen = Screen.CallLog
+        loadCallLog()
+    }
+
+    fun openAbout() {
+        screen = Screen.About
+    }
+
+    fun back() {
+        screen = Screen.Home
+        refreshCallState()
+    }
+
+    fun onQueryChange(value: String) {
+        query = value
+    }
+
+    fun enterSearch(value: Boolean) {
+        searching = value
+        if (!value) query = ""
+    }
+
+    fun selectGroup(value: String?) {
+        groupFilter = if (groupFilter == value) null else value
+    }
+
+    fun find(id: Long): Contact? = _contacts.value.firstOrNull { it.id == id }
+
+    // ————————————————— 增删改 —————————————————
+
+    fun save(draft: Contact): Boolean {
+        val name = draft.name.trim()
+        val phone = draft.phone.trim()
+        if (name.isEmpty()) {
+            toast = "姓名不能为空"
+            return false
+        }
+        if (!draft.copy(phone = phone).hasValidPhone()) {
+            toast = "请填写有效的号码"
+            return false
+        }
+        val now = System.currentTimeMillis()
+        viewModelScope.launch {
+            if (draft.id == 0L) {
+                repo.insert(draft.copy(name = name, phone = phone, createdAt = now, updatedAt = now))
+                toast = "已添加联系人"
+            } else {
+                repo.update(draft.copy(name = name, phone = phone, updatedAt = now))
+                toast = "已保存修改"
+            }
+            refresh()
+            screen = Screen.Home
+        }
+        return true
+    }
+
+    fun toggleFavorite(contact: Contact) {
+        viewModelScope.launch {
+            repo.update(
+                contact.copy(favorite = !contact.favorite, updatedAt = System.currentTimeMillis())
+            )
+            refresh()
+        }
+    }
+
+    fun requestDelete(id: Long) {
+        pendingDeleteId = id
+    }
+
+    fun dismissDelete() {
+        pendingDeleteId = null
+    }
+
+    fun confirmDelete() {
+        val id = pendingDeleteId ?: return
+        pendingDeleteId = null
+        viewModelScope.launch {
+            repo.delete(id)
+            refresh()
+            screen = Screen.Home
+            toast = "已删除"
+        }
+    }
+
+    fun requestClearAll() {
+        confirmClearAll = true
+    }
+
+    fun dismissClearAll() {
+        confirmClearAll = false
+    }
+
+    fun doClearAll() {
+        confirmClearAll = false
+        viewModelScope.launch {
+            repo.deleteAll()
+            refresh()
+            toast = "通讯录已清空"
+        }
+    }
+
+    fun consumeToast() {
+        toast = null
+    }
+
+    /** 供 UI 层直接给出提示（例如跳转系统设置失败时） */
+    fun notify(message: String) {
+        toast = message
+    }
+
+    fun dismissResult() {
+        resultDialog = null
+    }
+
+    // ————————————————— 导入系统通讯录 —————————————————
+
+    /**
+     * 标记重复联系人。
+     *
+     * 判定范围同时覆盖系统和本应用：
+     * · 系统里同一个号码出现在两个不同联系人上（Contacts 表按人去重后的重复卡片）
+     * · 本应用里同一个号码出现多次
+     * 命中的联系人打上「重复」标签，用户搜号码就能定位到自己该删哪一条，
+     * 系统那边的重复还需要他自己去系统通讯录里删 —— 本应用不替他动系统数据。
+     */
+    fun markDuplicates() {
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canReadContacts(context)) {
+            toast = "需要通讯录读取权限才能比对重复"
+            return
+        }
+        if (busy) return
+        busy = true
+        busyText = "正在比对重复号码…"
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching { applyDuplicateTags() }
+            }
+            busy = false
+            busyText = ""
+            outcome.onSuccess { (tagged, untagged, dupCount) ->
+                refresh()
+                resultDialog = ResultDialog(
+                    "重复检测完成",
+                    buildString {
+                        appendLine("发现 $dupCount 个重复号码")
+                        appendLine("新标记 $tagged 人，撤销 $untagged 人")
+                        appendLine()
+                        append("带「重复」标签的联系人，搜号码就能定位。系统通讯录里的重复卡片需要你自己去系统里删。")
+                    }
+                )
+            }.onFailure {
+                resultDialog = ResultDialog("检测失败", it.message ?: "读取通讯录时出错")
+            }
+        }
+    }
+
+    /**
+     * 重复标记的核心逻辑：返回 (新标记数, 撤销数, 重复号码数)。
+     * 导入完成后也会跑一遍，保证用户改完系统记录重新导入时标签是准的。
+     */
+    private suspend fun applyDuplicateTags(): Triple<Int, Int, Int> = withContext(Dispatchers.IO) {
+        val context = getApplication<Application>()
+        // 系统里：号码 -> 出现在几个不同联系人上
+        val sys = runCatching { SystemContacts.readAll(context) }.getOrDefault(emptyList())
+        val sysOwners = HashMap<String, MutableSet<Long>>()
+        sys.forEach { person ->
+            person.phones.forEach { number ->
+                val d = PhoneText.digits(number)
+                if (d.isNotEmpty()) {
+                    sysOwners.getOrPut(d) { HashSet() }.add(person.contactId)
+                }
+            }
+        }
+        val dupNumbers = sysOwners.filterValues { it.size > 1 }.keys.toMutableSet()
+
+        val all = repo.getAll()
+        // 本应用里：号码 -> 出现次数
+        val libCounts = HashMap<String, Int>()
+        all.forEach { c ->
+            listOf(c.phone, c.phone2).forEach { number ->
+                val d = PhoneText.digits(number)
+                if (d.isNotEmpty()) libCounts[d] = (libCounts[d] ?: 0) + 1
+            }
+        }
+        libCounts.filterValues { it > 1 }.keys.forEach { dupNumbers.add(it) }
+
+        var tagged = 0
+        var untagged = 0
+        val now = System.currentTimeMillis()
+        all.forEach { c ->
+            val phones = listOf(c.phone, c.phone2)
+                .map { PhoneText.digits(it) }
+                .filter { it.isNotEmpty() }
+            val shouldTag = phones.any { dupNumbers.contains(it) }
+            val hasTag = c.tags.contains(TAG_DUPLICATE)
+            if (shouldTag == hasTag) return@forEach
+            val newTags = if (shouldTag) {
+                addTag(c.tags, TAG_DUPLICATE)
+            } else {
+                removeTag(c.tags, TAG_DUPLICATE)
+            }
+            repo.update(c.copy(tags = newTags, updatedAt = now))
+            if (shouldTag) tagged++ else untagged++
+        }
+        Triple(tagged, untagged, dupNumbers.size)
+    }
+    private fun addTag(tags: String, tag: String): String {
+        val parts = tags.split(TAG_SEPARATOR)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && it != tag }
+            .toMutableList()
+        parts.add(tag)
+        return parts.joinToString(TAG_SEPARATOR)
+    }
+
+    private fun removeTag(tags: String, tag: String): String =
+        tags.split(TAG_SEPARATOR)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && it != tag }
+            .joinToString(TAG_SEPARATOR)
+
+    // ————————————————— 导出到系统通讯录 —————————————————
+
+    /**
+     * 把本应用里的联系人写回系统通讯录。
+     * 用于「反悔卸载」或「想把数据还原回系统」的场景，按号码去重，已有号码跳过。
+     */
+    fun exportToSystem() {
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canWriteContacts(context)) {
+            toast = "需要通讯录写入权限"
+            return
+        }
+        val list = _contacts.value
+        if (list.isEmpty()) {
+            toast = "本应用里还没有联系人"
+            return
+        }
+        if (busy) return
+        busy = true
+        busyText = "正在导出到系统通讯录…"
+        viewModelScope.launch {
+            val summary = withContext(Dispatchers.IO) {
+                runCatching { SystemContacts.exportToSystem(context, list) }
+            }
+            busy = false
+            busyText = ""
+            scanSystemContacts()
+            summary.onSuccess { s ->
+                resultDialog = ResultDialog(
+                    "导出完成",
+                    buildString {
+                        appendLine("写入系统通讯录 $s.created 人")
+                        if (s.skippedExisting > 0) appendLine("系统已有相同号码，跳过 $s.skippedExisting 人")
+                        if (s.skippedNoPhone > 0) appendLine("没有号码，跳过 $s.skippedNoPhone 人")
+                        if (s.failed > 0) appendLine("写入失败 $s.failed 人（系统拒绝了请求）")
+                        appendLine()
+                        append("本应用里的加密副本保持不变。")
+                    }
+                )
+            }.onFailure {
+                resultDialog = ResultDialog("导出失败", it.message ?: "写入系统通讯录时出错")
+            }
+        }
+    }
+
+    fun scanSystemContacts() {
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canReadContacts(context)) {
+            systemScanned = false
+            return
+        }
+        viewModelScope.launch {
+            val count = withContext(Dispatchers.IO) {
+                runCatching { SystemContacts.readAll(context).size }.getOrDefault(0)
+            }
+            systemContactCount = count
+            systemScanned = true
+        }
+    }
+
+    /**
+     * 读取系统通讯录并写入加密库。
+     *
+     * 去重依据是 raw contact id，不是号码 —— 按号码去重会把「同号但确实是两条记录」
+     * 的联系人丢掉，导致系统里还有人没被导入。
+     *
+     * 重复不是「跳过」而是「比对更新」：系统里改了姓名或补了号码，重新导入要能把库里的
+     * 记录补全。之前直接跳过，导致用户把号码从姓名栏挪到电话栏后，库里那条永远是空的。
+     */
+    fun importFromSystem() {
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canReadContacts(context)) {
+            toast = "需要通讯录读取权限"
+            return
+        }
+        if (busy) return
+        busy = true
+        busyText = "正在读取系统通讯录…"
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val library = repo.getAll()
+
+                    // —— 第一步：把库内因多次导入产生的重复副本合并掉 ——
+                    // 同一条 rawId 出现在多条库记录里，说明同一人被导入过两次，保留最新的一条。
+                    val ownerOfRawId = HashMap<Long, Contact>()
+                    val allRawIdsByOwner = HashMap<Long, MutableSet<Long>>()
+                    val redundantIds = ArrayList<Long>()
+                    library.sortedByDescending { it.updatedAt }.forEach { c ->
+                        if (c.sourceRawIds.isEmpty()) return@forEach
+                        val owner = c.sourceRawIds.firstNotNullOfOrNull { ownerOfRawId[it] }
+                        if (owner == null) {
+                            c.sourceRawIds.forEach { ownerOfRawId[it] = c }
+                            allRawIdsByOwner[c.id] = c.sourceRawIds.toMutableSet()
+                        } else {
+                            redundantIds += c.id
+                            allRawIdsByOwner.getOrPut(owner.id) { owner.sourceRawIds.toMutableSet() }
+                                .addAll(c.sourceRawIds)
+                        }
+                    }
+                    var mergedDuplicates = redundantIds.size
+                    allRawIdsByOwner.forEach { (id, ids) ->
+                        val owner = library.firstOrNull { it.id == id } ?: return@forEach
+                        val merged = ids - owner.sourceRawIds.toSet()
+                        if (merged.isNotEmpty()) {
+                            val patched = owner.copy(sourceRawIds = ids.toList())
+                            // 合并后的记录重新登记，后续比对才能命中
+                            ids.forEach { ownerOfRawId[it] = patched }
+                            repo.update(patched)
+                        }
+                    }
+                    redundantIds.forEach { repo.delete(it) }
+                    mergedDuplicates = redundantIds.size
+
+                    // —— 第二步：逐人比对，新面孔插入，已存在的按系统内容补全 ——
+                    val sys = SystemContacts.readAll(context)
+                    val now = System.currentTimeMillis()
+                    var imported = 0
+                    var updatedCount = 0
+                    var unchanged = 0
+
+                    sys.forEach { person ->
+                        val numbers = person.phones
+                            .map { it.trim() }
+                            .filter { PhoneText.digits(it).isNotEmpty() }
+                            .distinct()
+                        // 姓名栏里藏着号码的脏数据：把号码救回电话字段，否则按号码永远搜不到
+                        val guessed = if (numbers.isEmpty()) PhoneText.fromName(person.name) else null
+                        val effectivePhones = if (guessed != null) listOf(guessed) else numbers
+                        val existing = person.rawIds.firstNotNullOfOrNull { ownerOfRawId[it] }
+
+                        if (existing != null) {
+                            val newName = person.name.trim().ifBlank { existing.name }
+                            val newPhone = effectivePhones.getOrNull(0) ?: existing.phone
+                            val newPhone2 = effectivePhones.getOrNull(1) ?: existing.phone2
+                            val newRawIds = (existing.sourceRawIds + person.rawIds).distinct()
+                            val changed = newName != existing.name ||
+                                newPhone != existing.phone ||
+                                newPhone2 != existing.phone2 ||
+                                newRawIds.size != existing.sourceRawIds.size
+                            if (changed) {
+                                val patched = existing.copy(
+                                    name = newName,
+                                    phone = newPhone,
+                                    phone2 = newPhone2,
+                                    sourceRawIds = newRawIds,
+                                    updatedAt = now
+                                )
+                                repo.update(patched)
+                                newRawIds.forEach { ownerOfRawId[it] = patched }
+                                updatedCount++
+                            } else {
+                                unchanged++
+                            }
+                        } else {
+                            val contact = Contact(
+                                name = person.name.trim().ifBlank {
+                                    effectivePhones.firstOrNull() ?: "未命名"
+                                },
+                                phone = effectivePhones.getOrNull(0).orEmpty(),
+                                phone2 = effectivePhones.getOrNull(1).orEmpty(),
+                                groupName = "系统导入",
+                                sourceRawIds = person.rawIds,
+                                createdAt = now,
+                                updatedAt = now
+                            )
+                            repo.insert(contact)
+                            person.rawIds.forEach { ownerOfRawId[it] = contact }
+                            imported++
+                        }
+                    }
+
+                    val noPhone = sys.count { person ->
+                        person.phones.none { PhoneText.digits(it).isNotEmpty() } &&
+                            PhoneText.fromName(person.name) == null
+                    }
+                    ImportOutcome(
+                        total = sys.size,
+                        imported = imported,
+                        updated = updatedCount,
+                        unchanged = unchanged,
+                        noPhone = noPhone,
+                        noRawId = sys.count { it.rawIds.isEmpty() },
+                        mergedDuplicates = mergedDuplicates
+                    )
+                }
+            }
+
+            busy = false
+            busyText = ""
+            outcome.onSuccess { result ->
+                // 导入完顺手标一次重复，用户不用再手动点
+                val (tagged, _, dupCount) = runCatching { applyDuplicateTags() }
+                    .getOrDefault(Triple(0, 0, 0))
+                refresh()
+                scanSystemContacts()
+                val extra = if (dupCount > 0) {
+                    "\n\n检测到 $dupCount 个重复号码，已给 $tagged 人打上「重复」标签。"
+                } else {
+                    ""
+                }
+                resultDialog = ResultDialog("导入完成", result.describe() + extra)
+            }.onFailure {
+                resultDialog = ResultDialog("导入失败", it.message ?: "读取系统通讯录时出错")
+            }
+        }
+    }
+
+    // ————————————————— 清理系统通讯录 —————————————————
+
+    /**
+     * 清理 = 把系统通讯录删干净。
+     * 早先只删「导入过的那批」，结果重复的联系人、没有号码的人全留在系统里，
+     * 用户还得再点一次全量删除，体验很差。现在一步到位：按当前系统里的全部
+     * raw contact 删除，本应用内的加密副本不受影响，照样能查能拨。
+     */
+
+    fun requestWipeAll() {
+        // 没扫过或数字过期时先刷新一次，确认按钮上的数字是真的
+        if (!systemScanned) scanSystemContacts()
+        confirmWipeAll = true
+    }
+
+    fun dismissWipeAll() {
+        confirmWipeAll = false
+    }
+
+    /**
+     * 删除系统通讯录里的全部联系人：重复的、没有号码的、导入后才新增的，一次清干净。
+     * 部分机型第一次删除会残留（同步适配器把记录又写回来），这里删完回读一次，
+     * 还有残留就再删一遍，最多两轮。
+     */
+    fun doWipeAll() {
+        confirmWipeAll = false
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canWriteContacts(context)) {
+            toast = "需要通讯录写入权限"
+            return
+        }
+        if (busy) return
+        busy = true
+        busyText = "正在清空系统通讯录…"
+        viewModelScope.launch {
+            var deleted = withContext(Dispatchers.IO) {
+                runCatching { SystemContacts.deleteAll(context) }.getOrDefault(-1)
+            }
+            var remaining = withContext(Dispatchers.IO) {
+                runCatching { SystemContacts.countAll(context) }.getOrDefault(0)
+            }
+            // 第一轮没删干净就再来一轮，避免「清完还剩几个」
+            if (deleted >= 0 && remaining > 0) {
+                val again = withContext(Dispatchers.IO) {
+                    runCatching { SystemContacts.deleteAll(context) }.getOrDefault(0)
+                }
+                if (again > 0) {
+                    deleted += again
+                    remaining = withContext(Dispatchers.IO) {
+                        runCatching { SystemContacts.countAll(context) }.getOrDefault(remaining)
+                    }
+                }
+            }
+            busy = false
+            busyText = ""
+            systemContactCount = remaining
+            systemScanned = true
+            if (deleted < 0) {
+                resultDialog = ResultDialog("清空失败", "系统拒绝了删除请求，请检查通讯录写入权限。")
+            } else {
+                resultDialog = ResultDialog(
+                    "系统通讯录已清空",
+                    buildString {
+                        appendLine("共删除 $deleted 条记录（含重复的、没有号码的、导入后新增的）")
+                        appendLine("本应用内的加密副本不受影响，仍然可以查和拨号")
+                        if (remaining > 0) {
+                            appendLine()
+                            appendLine("系统里仍有 $remaining 人没删掉，通常来自只读账户（如企业目录、SIM 卡），需要到系统设置里手动处理。")
+                        }
+                        appendLine()
+                        append("若联系人来自云端账户，同步适配器可能把删除同步到云端。")
+                    }
+                )
+            }
+        }
+    }
+
+    /** 导出 CSV 备份（明文，仅用于自备份，导出后请自行保管） */
+    fun exportCsv(uri: Uri) {
+        val context = getApplication<Application>()
+        val all = _contacts.value
+        if (all.isEmpty()) {
+            toast = "通讯录为空，无需导出"
+            return
+        }
+        busy = true
+        busyText = "正在导出备份…"
+        viewModelScope.launch {
+            val count = withContext(Dispatchers.IO) {
+                runCatching { SystemContacts.exportCsv(context, uri, all) }.getOrDefault(-1)
+            }
+            busy = false
+            busyText = ""
+            if (count < 0) {
+                toast = "导出失败"
+            } else {
+                resultDialog = ResultDialog(
+                    "备份已导出",
+                    "共导出 $count 条联系人。\n\n⚠️ CSV 是明文文件，请存放在安全位置，用完及时删除。"
+                )
+            }
+        }
+    }
+
+    // ————————————————— 来电识别 —————————————————
+
+    // ————————————————— 短信备份 —————————————————
+
+    /** 页面展示条数上限：一次解密几千条会拖慢首屏，分批加载更稳 */
+    private val PAGE_SIZE = 200
+
+    fun loadSms(append: Boolean = false) {
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canReadSms(context)) {
+            smsLoaded = true
+            smsMessages = emptyList()
+            return
+        }
+        viewModelScope.launch {
+            val offset = if (append) smsMessages.size else 0
+            val page = withContext(Dispatchers.IO) {
+                runCatching { archiveRepo.smsTable.page(offset, PAGE_SIZE) }.getOrDefault(emptyList())
+            }
+            val total = withContext(Dispatchers.IO) {
+                runCatching { archiveRepo.smsTable.count() }.getOrDefault(0)
+            }
+            smsMessages = if (append) smsMessages + page else page
+            smsLoaded = true
+            systemSmsCount = withContext(Dispatchers.IO) {
+                runCatching { SystemSms.countAll(context) }.getOrDefault(0)
+            }
+        }
+    }
+
+    /** 从系统导入短信到加密库，按系统短信 id 去重，重复导入只补新的 */
+    fun importSms() {
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canReadSms(context)) {
+            toast = "需要短信读取权限"
+            return
+        }
+        if (busy) return
+        busy = true
+        busyText = "正在读取系统短信…"
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val known = HashSet<Long>()
+                    // 先把库里的系统 id 读出来，避免重复导入产生副本
+                    var offset = 0
+                    while (true) {
+                        val page = archiveRepo.smsTable.page(offset, PAGE_SIZE)
+                        if (page.isEmpty()) break
+                        page.forEach { known.add(it.sourceSmsId) }
+                        offset += PAGE_SIZE
+                    }
+
+                    val sys = SystemSms.readAll(context)
+                    val now = System.currentTimeMillis()
+                    val pending = ArrayList<SmsMessage>()
+                    var skipped = 0
+                    sys.forEach { s ->
+                        if (s.id in known) {
+                            skipped++
+                            return@forEach
+                        }
+                        pending.add(
+                            SmsMessage(
+                                address = s.address,
+                                body = s.body,
+                                date = s.date,
+                                type = s.type,
+                                read = s.read,
+                                threadId = s.threadId,
+                                sourceSmsId = s.id,
+                                createdAt = now
+                            )
+                        )
+                    }
+                    val inserted = archiveRepo.smsTable.insertMany(pending)
+                    Triple(sys.size, inserted, skipped)
+                }
+            }
+            busy = false
+            busyText = ""
+            outcome.onSuccess { (total, inserted, skipped) ->
+                loadSms()
+                resultDialog = ResultDialog(
+                    "短信导入完成",
+                    buildString {
+                        appendLine("系统短信共 $total 条")
+                        appendLine("本次新增导入 $inserted 条")
+                        if (skipped > 0) appendLine("已导入过，跳过 $skipped 条")
+                        appendLine()
+                        append("已用会话密钥 AES-256-GCM 加密写入本机数据库。")
+                    }
+                )
+            }.onFailure {
+                resultDialog = ResultDialog("短信导入失败", it.message ?: "读取系统短信时出错")
+            }
+        }
+    }
+
+    fun requestWipeSms() {
+        confirmWipeSms = true
+    }
+
+    fun dismissWipeSms() {
+        confirmWipeSms = false
+    }
+
+    /** 清空系统短信。Android 4.4+ 需要默认短信应用身份，可能删不掉，如实回报 */
+    fun doWipeSms() {
+        confirmWipeSms = false
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canWriteSms(context)) {
+            toast = "需要短信写入权限"
+            return
+        }
+        if (busy) return
+        busy = true
+        busyText = "正在清空系统短信…"
+        viewModelScope.launch {
+            val deleted = withContext(Dispatchers.IO) {
+                runCatching { SystemSms.deleteAll(context) }.getOrDefault(-1)
+            }
+            val remaining = withContext(Dispatchers.IO) {
+                runCatching { SystemSms.countAll(context) }.getOrDefault(0)
+            }
+            busy = false
+            busyText = ""
+            systemSmsCount = remaining
+            if (deleted < 0) {
+                resultDialog = ResultDialog(
+                    "系统拒绝了删除请求",
+                    "Android 4.4 起，只有「默认短信应用」才能删除短信。\n\n" +
+                        "· 可以把本应用设为默认短信应用后再试\n" +
+                        "· 或者在系统短信应用里手动清空\n\n" +
+                        "本应用内的加密副本不受影响，仍然可以查看。"
+                )
+            } else {
+                resultDialog = ResultDialog(
+                    "系统短信已清空",
+                    buildString {
+                        appendLine("共删除 $deleted 条")
+                        appendLine("本应用内的加密副本不受影响")
+                        if (remaining > 0) {
+                            appendLine()
+                            appendLine("系统里仍剩 $remaining 条（部分短信属于系统账户，无法删除）。")
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    fun requestClearSms() {
+        confirmClearSms = true
+    }
+
+    fun dismissClearSms() {
+        confirmClearSms = false
+    }
+
+    /** 清空本应用内的短信副本 */
+    fun doClearSms() {
+        confirmClearSms = false
+        viewModelScope.launch {
+            archiveRepo.smsTable.deleteAll()
+            smsMessages = emptyList()
+            toast = "本应用的短信副本已清空"
+        }
+    }
+
+    fun deleteSms(id: Long) {
+        viewModelScope.launch {
+            archiveRepo.smsTable.delete(id)
+            loadSms()
+        }
+    }
+
+    /** 把本应用里的短信写回系统 */
+    fun exportSmsToSystem() {
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canWriteSms(context)) {
+            toast = "需要短信写入权限"
+            return
+        }
+        val list = smsMessages
+        if (list.isEmpty()) {
+            toast = "本应用里还没有短信"
+            return
+        }
+        if (busy) return
+        busy = true
+        busyText = "正在导出短信到系统…"
+        viewModelScope.launch {
+            val summary = withContext(Dispatchers.IO) {
+                runCatching { SystemSms.exportToSystem(context, list) }
+            }
+            busy = false
+            busyText = ""
+            summary.onSuccess { s ->
+                resultDialog = ResultDialog(
+                    "短信导出完成",
+                    buildString {
+                        appendLine("写入系统 $s.created 条")
+                        if (s.skippedExisting > 0) appendLine("系统已有相同短信，跳过 $s.skippedExisting 条")
+                        if (s.failed > 0) appendLine("写入失败 $s.failed 条（系统拒绝了请求）")
+                        appendLine()
+                        append("本应用内的加密副本保持不变。")
+                    }
+                )
+            }.onFailure {
+                resultDialog = ResultDialog("导出失败", it.message ?: "写入系统短信时出错")
+            }
+        }
+    }
+
+    fun exportSmsCsv(uri: Uri) {
+        val context = getApplication<Application>()
+        val list = smsMessages
+        if (list.isEmpty()) {
+            toast = "没有短信可导出"
+            return
+        }
+        busy = true
+        busyText = "正在导出短信备份…"
+        viewModelScope.launch {
+            val count = withContext(Dispatchers.IO) {
+                runCatching { SystemSms.exportCsv(context, uri, list) }.getOrDefault(-1)
+            }
+            busy = false
+            busyText = ""
+            if (count < 0) {
+                toast = "导出失败"
+            } else {
+                resultDialog = ResultDialog(
+                    "短信备份已导出",
+                    "共导出 $count 条短信。\n\n⚠️ CSV 是明文文件，请存放在安全位置，用完及时删除。"
+                )
+            }
+        }
+    }
+
+    // ————————————————— 通话记录备份 —————————————————
+
+    fun loadCallLog(append: Boolean = false) {
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canReadCallLog(context)) {
+            callLogLoaded = true
+            callRecords = emptyList()
+            return
+        }
+        viewModelScope.launch {
+            val offset = if (append) callRecords.size else 0
+            val page = withContext(Dispatchers.IO) {
+                runCatching { archiveRepo.callTable.page(offset, PAGE_SIZE) }.getOrDefault(emptyList())
+            }
+            callRecords = if (append) callRecords + page else page
+            callLogLoaded = true
+            systemCallCount = withContext(Dispatchers.IO) {
+                runCatching { SystemCallLog.countAll(context) }.getOrDefault(0)
+            }
+        }
+    }
+
+    /** 从系统导入通话记录到加密库 */
+    fun importCallLog() {
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canReadCallLog(context)) {
+            toast = "需要通话记录读取权限"
+            return
+        }
+        if (busy) return
+        busy = true
+        busyText = "正在读取系统通话记录…"
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    val known = HashSet<Long>()
+                    var offset = 0
+                    while (true) {
+                        val page = archiveRepo.callTable.page(offset, PAGE_SIZE)
+                        if (page.isEmpty()) break
+                        page.forEach { known.add(it.sourceCallId) }
+                        offset += PAGE_SIZE
+                    }
+
+                    val sys = SystemCallLog.readAll(context)
+                    val now = System.currentTimeMillis()
+                    val pending = ArrayList<CallRecord>()
+                    var skipped = 0
+                    sys.forEach { c ->
+                        if (c.id in known) {
+                            skipped++
+                            return@forEach
+                        }
+                        pending.add(
+                            CallRecord(
+                                number = c.number,
+                                contactName = c.cachedName,
+                                type = c.type,
+                                date = c.date,
+                                duration = c.duration,
+                                sourceCallId = c.id,
+                                createdAt = now
+                            )
+                        )
+                    }
+                    val inserted = archiveRepo.callTable.insertMany(pending)
+                    Triple(sys.size, inserted, skipped)
+                }
+            }
+            busy = false
+            busyText = ""
+            outcome.onSuccess { (total, inserted, skipped) ->
+                loadCallLog()
+                resultDialog = ResultDialog(
+                    "通话记录导入完成",
+                    buildString {
+                        appendLine("系统通话记录共 $total 条")
+                        appendLine("本次新增导入 $inserted 条")
+                        if (skipped > 0) appendLine("已导入过，跳过 $skipped 条")
+                        appendLine()
+                        append("已用会话密钥 AES-256-GCM 加密写入本机数据库。")
+                    }
+                )
+            }.onFailure {
+                resultDialog = ResultDialog("导入失败", it.message ?: "读取通话记录时出错")
+            }
+        }
+    }
+
+    fun requestWipeCalls() {
+        confirmWipeCalls = true
+    }
+
+    fun dismissWipeCalls() {
+        confirmWipeCalls = false
+    }
+
+    /** 清空系统通话记录。普通应用没有 WRITE_CALL_LOG，大概率被系统拒绝 */
+    fun doWipeCalls() {
+        confirmWipeCalls = false
+        val context = getApplication<Application>()
+        if (!PermissionUtil.canWriteCallLog(context)) {
+            toast = "系统不允许普通应用删除通话记录"
+            return
+        }
+        if (busy) return
+        busy = true
+        busyText = "正在清空系统通话记录…"
+        viewModelScope.launch {
+            val deleted = withContext(Dispatchers.IO) {
+                runCatching { SystemCallLog.deleteAll(context) }.getOrDefault(-1)
+            }
+            val remaining = withContext(Dispatchers.IO) {
+                runCatching { SystemCallLog.countAll(context) }.getOrDefault(0)
+            }
+            busy = false
+            busyText = ""
+            systemCallCount = remaining
+            if (deleted < 0 || remaining > 0) {
+                resultDialog = ResultDialog(
+                    "系统拒绝了删除请求",
+                    "Android 对通话记录的删除权限只授予系统应用，普通 App 无法清空。\n\n" +
+                        "· 可以在手机自带「电话」App 里手动删除\n" +
+                        "· 或到 设置 → 应用 → 电话 → 清除数据\n\n" +
+                        "本应用内的加密副本不受影响。"
+                )
+            } else {
+                resultDialog = ResultDialog(
+                    "系统通话记录已清空",
+                    "共删除 $deleted 条。本应用内的加密副本不受影响。"
+                )
+            }
+        }
+    }
+
+    fun requestClearCalls() {
+        confirmClearCalls = true
+    }
+
+    fun dismissClearCalls() {
+        confirmClearCalls = false
+    }
+
+    fun doClearCalls() {
+        confirmClearCalls = false
+        viewModelScope.launch {
+            archiveRepo.callTable.deleteAll()
+            callRecords = emptyList()
+            toast = "本应用的通话记录副本已清空"
+        }
+    }
+
+    fun deleteCall(id: Long) {
+        viewModelScope.launch {
+            archiveRepo.callTable.delete(id)
+            loadCallLog()
+        }
+    }
+
+    fun exportCallsCsv(uri: Uri) {
+        val context = getApplication<Application>()
+        val list = callRecords
+        if (list.isEmpty()) {
+            toast = "没有通话记录可导出"
+            return
+        }
+        busy = true
+        busyText = "正在导出通话记录备份…"
+        viewModelScope.launch {
+            val count = withContext(Dispatchers.IO) {
+                runCatching { SystemCallLog.exportCsv(context, uri, list) }.getOrDefault(-1)
+            }
+            busy = false
+            busyText = ""
+            if (count < 0) {
+                toast = "导出失败"
+            } else {
+                resultDialog = ResultDialog(
+                    "通话记录备份已导出",
+                    "共导出 $count 条记录。\n\n⚠️ CSV 是明文文件，请存放在安全位置，用完及时删除。"
+                )
+            }
+        }
+    }
+
+    fun refreshCallState() {
+        val context = getApplication<Application>()
+        overlayAllowed = PermissionUtil.canDrawOverlays(context)
+        screeningRoleHeld = PermissionUtil.hasScreeningRole(context)
+    }
+
+    fun onCallServiceChanged(running: Boolean) {
+        callServiceRunning = running
+        refreshCallState()
+    }
+
+    // ————————————————— 列表分组 —————————————————
+
+    /** 按筛选条件过滤，并生成「收藏 / 字母分组」列表结构 */
+    fun buildSections(all: List<Contact>, rawQuery: String, filter: String?): List<ContactSection> {
+        val filtered = all.filter { contact ->
+            val passFilter = when (filter) {
+                null -> true
+                FAVORITE_FILTER -> contact.favorite
+                else -> contact.groupName == filter
+            }
+            passFilter && PinyinUtil.matches(contact, rawQuery)
+        }
+        if (filtered.isEmpty()) return emptyList()
+
+        val sections = mutableListOf<ContactSection>()
+        val favorites = filtered.filter { it.favorite }
+            .sortedBy { PinyinUtil.initials(it.name) }
+        if (favorites.isNotEmpty()) {
+            sections += ContactSection("★ 收藏", favorites)
+        }
+        filtered.filter { !it.favorite }
+            .groupBy { PinyinUtil.bucket(it.name) }
+            .toSortedMap(compareBy { if (it == "#") "ZZZ" else it })
+            .forEach { (letter, items) ->
+                sections += ContactSection(letter, items.sortedBy { PinyinUtil.initials(it.name) })
+            }
+        return sections
+    }
+}
