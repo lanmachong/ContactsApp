@@ -1,9 +1,7 @@
 package com.wb.contacts.system
 
 import android.content.Context
-import android.net.Uri
 import android.provider.CallLog
-import com.wb.contacts.R
 import com.wb.contacts.data.CallRecord
 
 /**
@@ -93,38 +91,6 @@ object SystemCallLog {
         return deleted
     }
 
-    /** 导出 CSV 备份 */
-    fun exportCsv(context: Context, uri: Uri, records: List<CallRecord>): Int {
-        val stream = context.contentResolver.openOutputStream(uri) ?: return -1
-        stream.bufferedWriter(Charsets.UTF_8).use { writer ->
-            writer.write("\uFEFF")
-            writer.write(context.getString(R.string.csv_calls_header))
-            writer.newLine()
-            records.forEach { r ->
-                val row = listOf(
-                    formatTime(r.date),
-                    r.number,
-                    r.contactName,
-                    r.typeLabel(context),
-                    r.duration.toString()
-                )
-                writer.write(row.joinToString(",") { escape(it) })
-                writer.newLine()
-            }
-        }
-        return records.size
-    }
 
-    private fun formatTime(millis: Long): String {
-        if (millis <= 0L) return ""
-        return runCatching {
-            java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
-                .format(java.util.Date(millis))
-        }.getOrDefault("")
-    }
 
-    private fun escape(value: String): String {
-        val text = value.replace("\"", "\"\"")
-        return if (text.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"$text\"" else text
-    }
 }

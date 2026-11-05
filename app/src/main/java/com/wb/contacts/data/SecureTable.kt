@@ -86,6 +86,23 @@ class SecureTable<T>(
         }
     }
 
+    /**
+     * 逐页遍历整表。
+     *
+     * 导出上千条记录时用它：一页一页解密、一页一页处理，
+     * 处理完就释放，不用把上万条一次性塞进内存。
+     */
+    suspend fun forEachPage(pageSize: Int = 500, onPage: suspend (List<T>) -> Unit) {
+        var offset = 0
+        while (true) {
+            val chunk = page(offset, pageSize)
+            if (chunk.isEmpty()) break
+            onPage(chunk)
+            offset += chunk.size
+            if (chunk.size < pageSize) break
+        }
+    }
+
     suspend fun insert(item: T): Long = withContext(Dispatchers.IO) {
         val id = helper.writableDatabase.insert(table, null, values(item))
         invalidate()

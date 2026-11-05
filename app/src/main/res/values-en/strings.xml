@@ -51,7 +51,7 @@
     <string name="home_import_from_system">Import from system contacts</string>
     <string name="home_add_manually">Add a contact manually</string>
     <string name="home_loading">Decrypting local contacts…</string>
-    <string name="home_menu_import">Import from system contacts</string>
+    <string name="home_menu_import">Contacts backup</string>
     <string name="home_menu_sms">SMS backup</string>
     <string name="home_menu_calllog">Call log backup</string>
     <string name="home_menu_callid">Caller ID overlay</string>
@@ -63,10 +63,14 @@
     <string name="dialog_delete_title">Delete contact</string>
     <string name="dialog_delete_message">This cannot be undone. Are you sure?</string>
 
-    <!-- ==================== Import & cleanup ==================== -->
-    <string name="import_title">Import &amp; cleanup</string>
-    <string name="import_step1_title">Import system contacts</string>
-    <string name="import_step1_desc">Copy your phone contacts into this app in one go. Each record is encrypted with AES-256-GCM before it touches the local database.</string>
+    <!-- ==================== Contacts backup ==================== -->
+    <string name="import_title">Contacts backup</string>
+    <plurals name="import_subtitle">
+        <item quantity="one">%1$d contact encrypted and saved</item>
+        <item quantity="other">%1$d contacts encrypted and saved</item>
+    </plurals>
+    <string name="import_info_title">Move your system contacts into the encrypted store</string>
+    <string name="import_info_desc">Every contact is encrypted with AES-256-GCM before it is written to the local database — nothing in there is readable in plain text. You can clear the originals from the system afterwards so rogue apps cannot read them.</string>
     <string name="import_stat_system">System contacts</string>
     <string name="import_stat_local">This app</string>
     <string name="import_stat_pending">Permission needed</string>
@@ -75,28 +79,20 @@
         <item quantity="other">%1$d entries</item>
     </plurals>
     <string name="import_grant_permission">Grant contacts permission</string>
-    <string name="import_start">Start import</string>
+    <string name="import_start">Import system contacts</string>
     <string name="import_check_duplicates">Find duplicates</string>
     <string name="import_duplicate_hint">Duplicate numbers are automatically tagged as \"Duplicate\" so you can locate them by searching the number. Duplicate cards in your system contacts still have to be deleted there yourself.</string>
-    <string name="import_step2_title">Back up first</string>
-    <string name="import_step2_desc">CSV is a plain-text file, so only keep it temporarily. Store it somewhere safe and delete it when you no longer need it.</string>
-    <string name="import_export_csv">Export CSV backup</string>
-    <string name="import_step3_title">Export to system contacts</string>
-    <string name="import_step3_desc">Write the contacts from this app back into your phone\'s system contacts. Numbers that already exist are skipped, so no duplicate cards are created. Use this step to restore your data before uninstalling.</string>
+    <string name="import_export_csv">Export CSV</string>
     <string name="import_grant_write">Grant write permission</string>
-    <string name="import_no_contacts">No contacts in this app yet</string>
-    <plurals name="import_export_count">
-        <item quantity="one">Export %1$d contact to system</item>
-        <item quantity="other">Export %1$d contacts to system</item>
-    </plurals>
-    <string name="import_step4_title">Clear data</string>
-    <string name="import_step4_desc">Clearing SMS, call records and contacts all live in the \"Clear data\" page: pick what to clear and whether to clear the system copies or the encrypted copies in this app.</string>
-    <string name="import_step4_action">Go to Clear data</string>
-    <string name="import_warning_title">Before you delete</string>
-    <string name="import_warning_body">· If your contacts come from a Google or manufacturer cloud account, the sync adapter will push the deletion to the cloud\n· The system \"recycle bin\" usually keeps entries for 30 days — after that they are gone for good\n· Save the CSV backup to your computer or a USB drive first, and double-check it before cleaning up</string>
+    <string name="import_section_manage">Manage</string>
+    <string name="import_action_export_system">Export to system contacts</string>
+    <string name="import_action_export_system_desc">Write the contacts from this app back into your phone\'s system contacts. Numbers that already exist are skipped, so no duplicate cards are created.</string>
+    <string name="import_section_backed_up">Backed-up contacts</string>
+    <string name="import_list_hint">Your backed-up contacts live in the list on the home screen, searchable and dialable. Duplicate numbers are tagged as duplicates.</string>
+    <string name="import_warning_title">Back-up reminder</string>
+    <string name="import_warning_body">· CSV is a plain-text file — store it somewhere safe and do not keep it on your phone\n· If your contacts come from a Google or manufacturer cloud account, any later deletion is pushed to the cloud by the sync adapter\n· Save the CSV backup to your computer or a USB drive and double-check it before you go further</string>
     <string name="import_local_only">Data stays on this phone</string>
     <string name="import_version_local">Version v%1$s · data stays on this phone</string>
-
     <!-- ==================== SMS backup ==================== -->
     <string name="sms_title">SMS backup</string>
     <plurals name="sms_subtitle">
@@ -116,18 +112,17 @@
     <string name="sms_export_csv">Export CSV</string>
     <string name="sms_privacy_hint">Message content is sensitive, so this app reads it only after you grant permission. All data stays on this phone — never uploaded, never networked.</string>
     <string name="sms_section_manage">Manage</string>
-    <string name="sms_action_clear_data">Clear SMS</string>
-    <string name="sms_action_clear_data_desc">Pick SMS on the \"Clear data\" page to clear either the system messages or the encrypted copies here</string>
     <string name="sms_action_export_system">Export to system SMS</string>
     <string name="sms_action_export_system_desc">Write the messages from this app back into your SMS app, deduplicated by content and time</string>
     <string name="sms_action_export_system_desc_need_default">Set this app as the default SMS app first — tap to open system settings</string>
     <string name="sms_section_backed_up">Backed-up messages</string>
-    <string name="sms_list_hint">Tap to expand the full text, long-press a number to call. The list shows the most recently imported first and loads up to 200 entries.</string>
+    <string name="sms_list_hint">Tap to expand the full text, tap the number to dial. The list is newest-first and loads 200 rows per page.</string>
+    <string name="sms_list_progress">Showing %1$d of %2$d</string>
     <string name="sms_empty_none">No messages backed up yet</string>
     <string name="sms_empty_need_permission">SMS read permission is required to show content</string>
     <string name="sms_permission_title">About SMS permissions</string>
-    <string name="sms_permission_body">Reading messages requires READ_SMS, deleting them requires WRITE_SMS.\n\nOnce granted, only this app can read your messages, and all data is stored encrypted on this device.</string>
-    <string name="sms_not_default_app">Not set as the default SMS app yet, so system SMS cannot be cleared</string>
+    <string name="sms_permission_body">Reading messages requires READ_SMS; exporting or clearing them requires WRITE_SMS (which means making this app the default SMS app).\n\nOnce granted, only this app can read your messages, and all data is stored encrypted on this device.</string>
+    <string name="sms_not_default_app">Not set as the default SMS app yet, so messages cannot be exported to the system</string>
     <string name="sms_cannot_open_settings">Cannot open system settings. Change it manually in Settings - Apps - Default apps</string>
     <string name="sms_unknown_number">Unknown number</string>
 
@@ -150,10 +145,10 @@
     <string name="calllog_export_csv">Export CSV</string>
     <string name="calllog_privacy_hint">Call history is sensitive, so this app reads it only after you grant permission. All data stays on this phone — never uploaded, never networked.</string>
     <string name="calllog_section_manage">Manage</string>
-    <string name="calllog_action_clear_data">Clear call records</string>
-    <string name="calllog_action_clear_data_desc">Pick call records on the \"Clear data\" page to clear either the system records or the encrypted copies here</string>
+    <string name="calllog_manage_note">Call records cannot be written back to the system: only the built-in phone app may insert them, and a normal app has no such permission.</string>
     <string name="calllog_section_backed_up">Backed-up call records</string>
-    <string name="calllog_list_hint">Tap a number to call it. The list shows the most recently imported first and loads up to 200 entries.</string>
+    <string name="calllog_list_hint">Tap a number to dial. The list is newest-first and loads 200 rows per page.</string>
+    <string name="calllog_list_progress">Showing %1$d of %2$d</string>
     <string name="calllog_empty_none">No call records backed up yet</string>
     <string name="calllog_empty_need_permission">Call log read permission is required to show content</string>
     <string name="calllog_unknown_number">Unknown number</string>
@@ -216,7 +211,7 @@
     <string name="about_what_title">What it solves</string>
     <string name="about_what_body">It moves your phone contacts into an encrypted local vault: every record is encrypted with AES-256-GCM before it hits the disk, so the database holds no readable names or numbers. Paired with the caller ID overlay, even an unknown number shows you who it is.</string>
     <string name="about_features_title">Core features</string>
-    <string name="about_feature_import_title">Import / export</string>
+    <string name="about_feature_import_title">Contacts backup</string>
     <string name="about_feature_import_desc">Copy your system contacts in all at once; export them back any time after clearing the system, so uninstalling is never a risk</string>
     <string name="about_feature_crypto_title">Encrypted storage</string>
     <string name="about_feature_crypto_desc">The key is generated by the system Keystore, never written to disk and never exportable — even if the database is copied away, its contents stay unreadable</string>
@@ -471,7 +466,6 @@
     <string name="clear_data_need_select">Tick at least one thing to clear</string>
     <string name="clear_data_warning_title">Before you delete</string>
     <string name="clear_data_warning_body">\u00b7 Clearing cannot be undone \u2014 make sure you have exported a CSV backup\n\u00b7 If your contacts come from a cloud account, deletions may sync to the cloud\n\u00b7 Deleting SMS requires this app to be the default SMS app, otherwise the system refuses\n\u00b7 Deleting call records is granted to system apps only, so a regular app is refused</string>
-    <string name="clear_data_hint">All clearing happens under \"Clear data\" in the top-right menu</string>
     <string name="busy_clear_data">Clearing\u2026</string>
     <string name="clear_data_done_title">Done</string>
     <string name="clear_data_result_deleted">%1$s: deleted %2$d</string>

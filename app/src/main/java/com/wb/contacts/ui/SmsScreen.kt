@@ -24,8 +24,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -95,7 +95,7 @@ fun SmsScreen(vm: ContactsViewModel) {
     ) {
         tick++
         vm.loadSms()
-        // 回到应用后复查角色状态：授予了就直接继续清空，没授予就说明用户跳过了
+        // 回到应用后复查角色状态：没拿到默认短信应用身份，说明用户跳过了
         if (!PermissionUtil.isDefaultSmsApp(context)) {
             vm.notify(context.getString(R.string.sms_not_default_app))
         }
@@ -138,7 +138,7 @@ fun SmsScreen(vm: ContactsViewModel) {
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            pluralStringResource(R.plurals.sms_subtitle, vm.smsMessages.size, vm.smsMessages.size),
+                            pluralStringResource(R.plurals.sms_subtitle, vm.localSmsCount, vm.localSmsCount),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -184,7 +184,7 @@ fun SmsScreen(vm: ContactsViewModel) {
                 )
                 StatPill(
                     stringResource(R.string.sms_stat_local),
-                    pluralStringResource(R.plurals.sms_stat_count, vm.smsMessages.size, vm.smsMessages.size)
+                    pluralStringResource(R.plurals.sms_stat_count, vm.localSmsCount, vm.localSmsCount)
                 )
             }
 
@@ -225,7 +225,7 @@ fun SmsScreen(vm: ContactsViewModel) {
                                 .format(Date())
                             exportLauncher.launch("sms-$stamp.csv")
                         },
-                        enabled = vm.smsMessages.isNotEmpty() && !vm.busy,
+                        enabled = vm.localSmsCount > 0 && !vm.busy,
                         modifier = Modifier.weight(1f)
                     ) { Text(stringResource(R.string.sms_export_csv)) }
                 }
@@ -256,7 +256,7 @@ fun SmsScreen(vm: ContactsViewModel) {
                 } else {
                     stringResource(R.string.sms_action_export_system_desc_need_default)
                 },
-                enabled = vm.smsMessages.isNotEmpty() && !vm.busy,
+                enabled = vm.localSmsCount > 0 && !vm.busy,
                 onClick = {
                     if (canWrite) {
                         vm.exportSmsToSystem()
@@ -264,13 +264,6 @@ fun SmsScreen(vm: ContactsViewModel) {
                         requestDefaultSmsApp()
                     }
                 }
-            )
-            ActionRow(
-                title = stringResource(R.string.sms_action_clear_data),
-                desc = stringResource(R.string.sms_action_clear_data_desc),
-                enabled = !vm.busy,
-                danger = true,
-                onClick = { vm.openClearData() }
             )
 
             Spacer(Modifier.height(16.dp))
@@ -286,6 +279,14 @@ fun SmsScreen(vm: ContactsViewModel) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (vm.smsLoaded && vm.localSmsCount > 0) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    stringResource(R.string.sms_list_progress, vm.smsMessages.size, vm.localSmsCount),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Spacer(Modifier.height(8.dp))
 
             when {
@@ -307,10 +308,7 @@ fun SmsScreen(vm: ContactsViewModel) {
                         modifier = Modifier.fillMaxWidth().height(420.dp)
                     ) {
                         items(vm.smsMessages, key = { it.id }) { sms ->
-                            SmsRow(
-                                sms = sms,
-                                onDelete = { vm.deleteSms(sms.id) }
-                            )
+                            SmsRow(sms = sms)
                         }
                     }
                     if (vm.smsMessages.size >= 200) {
@@ -343,7 +341,7 @@ fun SmsScreen(vm: ContactsViewModel) {
 }
 
 @Composable
-private fun SmsRow(sms: SmsMessage, onDelete: () -> Unit) {
+private fun SmsRow(sms: SmsMessage) {
     var expanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val time = remember(sms.date) {
@@ -412,14 +410,6 @@ private fun SmsRow(sms: SmsMessage, onDelete: () -> Unit) {
                     )
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = stringResource(R.string.action_delete),
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.outline
-                )
-            }
         }
         Box(
             modifier = Modifier
@@ -455,7 +445,6 @@ internal fun ActionRow(
     title: String,
     desc: String,
     enabled: Boolean,
-    danger: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -469,8 +458,7 @@ internal fun ActionRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (danger) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = desc,
@@ -492,5 +480,38 @@ internal fun EmptyHint(text: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/** 警告卡：三个备份页与「清空数据」页共用同一套视觉 */
+@Composable
+internal fun WarningBox(title: String, body: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFB45309),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

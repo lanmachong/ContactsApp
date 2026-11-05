@@ -14,13 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -28,9 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -42,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -54,6 +49,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * 通讯录备份。
+ *
+ * 页面骨架与「短信备份」「通话记录备份」完全一致：
+ *   说明卡 → 统计（系统 / 本应用）→ 主操作按钮 → 管理 → 已备份列表说明 → 提示卡
+ *
+ * 这里不放任何删除入口 —— 所有清空操作统一收在首页右上角菜单的「清空数据」页。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportScreen(vm: ContactsViewModel) {
@@ -91,7 +94,19 @@ fun ImportScreen(vm: ContactsViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.import_title)) },
+                title = {
+                    Column {
+                        Text(
+                            stringResource(R.string.import_title),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            pluralStringResource(R.plurals.import_subtitle, contacts.size, contacts.size),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = vm::back) {
                         Icon(
@@ -115,13 +130,15 @@ fun ImportScreen(vm: ContactsViewModel) {
         ) {
             Spacer(Modifier.height(8.dp))
 
-            StepCard(
-                index = 1,
-                title = stringResource(R.string.import_step1_title),
-                desc = stringResource(R.string.import_step1_desc)
+            InfoCard(
+                stringResource(R.string.import_info_title),
+                stringResource(R.string.import_info_desc)
             )
+
+            Spacer(Modifier.height(16.dp))
+
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 44.dp, top = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 StatPill(
@@ -137,15 +154,17 @@ fun ImportScreen(vm: ContactsViewModel) {
                     pluralStringResource(R.plurals.import_stat_count, contacts.size, contacts.size)
                 )
             }
-            Spacer(Modifier.height(10.dp))
+
+            Spacer(Modifier.height(12.dp))
+
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 44.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (!canRead) {
                     Button(
                         onClick = {
-                            // 导入只需要读权限；写权限等到导出/清理时再单独申请
+                            // 导入只需要读权限；写权限等到导出到系统时才单独申请
                             permissionLauncher.launch(
                                 arrayOf(android.Manifest.permission.READ_CONTACTS)
                             )
@@ -177,18 +196,12 @@ fun ImportScreen(vm: ContactsViewModel) {
             Text(
                 stringResource(R.string.import_duplicate_hint),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 44.dp)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
 
-            StepCard(
-                index = 2,
-                title = stringResource(R.string.import_step2_title),
-                desc = stringResource(R.string.import_step2_desc)
-            )
-            Row(modifier = Modifier.fillMaxWidth().padding(start = 44.dp)) {
+            Row(modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
                     onClick = {
                         val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault())
@@ -201,88 +214,52 @@ fun ImportScreen(vm: ContactsViewModel) {
 
             Spacer(Modifier.height(20.dp))
 
-            StepCard(
-                index = 3,
-                title = stringResource(R.string.import_step3_title),
-                desc = stringResource(R.string.import_step3_desc)
+            Text(
+                stringResource(R.string.import_section_manage),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 44.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = {
-                        if (!canWrite) {
-                            permissionLauncher.launch(
-                                arrayOf(android.Manifest.permission.WRITE_CONTACTS)
-                            )
-                        } else {
-                            vm.exportToSystem()
-                        }
-                    },
-                    enabled = !vm.busy && contacts.isNotEmpty(),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        when {
-                            !canWrite -> stringResource(R.string.import_grant_write)
-                            contacts.isEmpty() -> stringResource(R.string.import_no_contacts)
-                            else -> pluralStringResource(R.plurals.import_export_count, contacts.size, contacts.size)
-                        }
-                    )
-                }
-            }
+            Spacer(Modifier.height(8.dp))
 
-            Spacer(Modifier.height(20.dp))
-
-            StepCard(
-                index = 4,
-                title = stringResource(R.string.import_step4_title),
-                desc = stringResource(R.string.import_step4_desc),
-                warning = true
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 44.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { vm.openClearData() },
-                    enabled = !vm.busy,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.import_step4_action))
-                }
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = Color(0xFFB45309),
-                            modifier = Modifier.size(18.dp)
+            ActionRow(
+                title = if (canWrite) {
+                    stringResource(R.string.import_action_export_system)
+                } else {
+                    stringResource(R.string.import_grant_write)
+                },
+                desc = stringResource(R.string.import_action_export_system_desc),
+                enabled = !vm.busy && contacts.isNotEmpty(),
+                onClick = {
+                    if (!canWrite) {
+                        permissionLauncher.launch(
+                            arrayOf(android.Manifest.permission.WRITE_CONTACTS)
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            stringResource(R.string.import_warning_title),
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    } else {
+                        vm.exportToSystem()
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        stringResource(R.string.import_warning_body),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
-            }
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                stringResource(R.string.import_section_backed_up),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.import_list_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            WarningBox(
+                stringResource(R.string.import_warning_title),
+                stringResource(R.string.import_warning_body)
+            )
 
             Spacer(Modifier.height(16.dp))
             Text(
@@ -292,47 +269,10 @@ fun ImportScreen(vm: ContactsViewModel) {
                     stringResource(R.string.import_version_local, versionName)
                 },
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 44.dp)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(32.dp))
-        }
-    }
-}
-
-@Composable
-private fun StepCard(index: Int, title: String, desc: String, warning: Boolean = false) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Surface(
-                color = if (warning) Color(0xFFFEF3C7) else MaterialTheme.colorScheme.primaryContainer,
-                shape = CircleShape,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = index.toString(),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (warning) Color(0xFFB45309) else MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f).padding(bottom = 8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(2.dp))
-            Text(
-                desc,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

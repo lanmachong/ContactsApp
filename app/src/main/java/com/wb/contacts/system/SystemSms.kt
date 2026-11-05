@@ -3,7 +3,6 @@ package com.wb.contacts.system
 import android.content.Context
 import android.net.Uri
 import android.provider.Telephony
-import com.wb.contacts.R
 import com.wb.contacts.data.SmsMessage
 
 /**
@@ -275,41 +274,6 @@ object SystemSms {
     private fun keyOf(address: String, body: String, date: Long): String =
         "$address|$body|$date"
 
-    /** 导出 CSV 备份（UTF-8 BOM，Excel 直接打开不乱码） */
-    fun exportCsv(context: Context, uri: Uri, messages: List<SmsMessage>): Int {
-        val stream = context.contentResolver.openOutputStream(uri) ?: return -1
-        stream.bufferedWriter(Charsets.UTF_8).use { writer ->
-            writer.write("\uFEFF")
-            writer.write(context.getString(R.string.csv_sms_header))
-            writer.newLine()
-            messages.forEach { m ->
-                val row = listOf(
-                    formatTime(m.date),
-                    m.address,
-                    context.getString(
-                        if (m.isOutgoing()) R.string.sms_direction_out else R.string.sms_direction_in
-                    ),
-                    m.typeLabel(context),
-                    context.getString(if (m.read) R.string.yes else R.string.no),
-                    m.body
-                )
-                writer.write(row.joinToString(",") { escape(it) })
-                writer.newLine()
-            }
-        }
-        return messages.size
-    }
 
-    private fun formatTime(millis: Long): String {
-        if (millis <= 0L) return ""
-        return runCatching {
-            java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
-                .format(java.util.Date(millis))
-        }.getOrDefault("")
-    }
 
-    private fun escape(value: String): String {
-        val text = value.replace("\"", "\"\"")
-        return if (text.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"$text\"" else text
-    }
 }

@@ -50,7 +50,7 @@
     <string name="home_import_from_system">从系统通讯录导入</string>
     <string name="home_add_manually">手动添加联系人</string>
     <string name="home_loading">正在解密本地通讯录…</string>
-    <string name="home_menu_import">从系统通讯录导入</string>
+    <string name="home_menu_import">通讯录备份</string>
     <string name="home_menu_sms">短信备份</string>
     <string name="home_menu_calllog">通话记录备份</string>
     <string name="home_menu_callid">来电识别悬浮窗</string>
@@ -62,38 +62,34 @@
     <string name="dialog_delete_title">删除联系人</string>
     <string name="dialog_delete_message">删除后无法恢复，确定继续吗？</string>
 
-    <!-- ==================== 导入与清理 ==================== -->
-    <string name="import_title">导入与清理</string>
-    <string name="import_step1_title">导入系统通讯录</string>
-    <string name="import_step1_desc">一次性把手机通讯录读进本应用，整条记录用 AES-256-GCM 加密后写入本机数据库。</string>
+    <!-- ==================== 通讯录备份 ==================== -->
+    <string name="import_title">通讯录备份</string>
+    <plurals name="import_subtitle">
+        <item quantity="other">%1$d 人已加密保存</item>
+    </plurals>
+    <string name="import_info_title">把系统通讯录搬进加密库</string>
+    <string name="import_info_desc">整条联系人用 AES-256-GCM 加密后写入本机数据库，库里没有任何明文内容。系统里的原通讯录可以随后清掉，防流氓软件读取。</string>
     <string name="import_stat_system">系统通讯录</string>
     <string name="import_stat_local">本应用</string>
     <string name="import_stat_pending">待授权</string>
     <plurals name="import_stat_count">
-        <item quantity="other">%1$d 条</item>
+        <item quantity="other">%1$d 人</item>
     </plurals>
     <string name="import_grant_permission">授予通讯录权限</string>
-    <string name="import_start">开始导入</string>
+    <string name="import_start">导入系统通讯录</string>
     <string name="import_check_duplicates">检测重复</string>
     <string name="import_duplicate_hint">重复的号码会被自动打上「重复」标签，搜号码即可定位；系统通讯录里的重复卡片需要你自己去系统里删。</string>
-    <string name="import_step2_title">先备份，再动手</string>
-    <string name="import_step2_desc">CSV 是明文文件，只建议临时存放。导出后请自己保管好，不想要了就删掉。</string>
-    <string name="import_export_csv">导出 CSV 备份</string>
-    <string name="import_step3_title">导出到系统通讯录</string>
-    <string name="import_step3_desc">把本应用里的联系人写回手机系统通讯录。系统里已有相同号码的会跳过，不会写出重复卡片。卸载前想还原数据就用这一步。</string>
+    <string name="import_export_csv">导出 CSV</string>
     <string name="import_grant_write">授予写入权限</string>
-    <string name="import_no_contacts">本应用还没有联系人</string>
-    <plurals name="import_export_count">
-        <item quantity="other">导出 %1$d 人到系统</item>
-    </plurals>
-    <string name="import_step4_title">清空数据</string>
-    <string name="import_step4_desc">短信、通话记录、通讯录的清空都收在「清空数据」这一页：可以多选要清空的内容，并选择清空系统里的还是本应用里的。</string>
-    <string name="import_step4_action">前往清空数据</string>
-    <string name="import_warning_title">删除前请确认</string>
-    <string name="import_warning_body">· 若联系人来自 Google / 手机厂商云账号，删除会被同步适配器推送到云端\n· 系统「回收站」通常只保留 30 天，超时后不可恢复\n· 建议先把 CSV 备份存到电脑或 U 盘，确认无误后再清理</string>
+    <string name="import_section_manage">管理</string>
+    <string name="import_action_export_system">导出到系统通讯录</string>
+    <string name="import_action_export_system_desc">把本应用里的联系人写回手机系统通讯录，号码相同的会跳过，不会写出重复卡片</string>
+    <string name="import_section_backed_up">已备份的通讯录</string>
+    <string name="import_list_hint">已备份的联系人就在首页的列表里，可搜索、可拨号；重复的号码会打上「重复」标签。</string>
+    <string name="import_warning_title">备份提醒</string>
+    <string name="import_warning_body">· CSV 是明文文件，导出后请妥善保管，别长期放在手机里\n· 若联系人来自 Google / 手机厂商云账号，日后删除会被同步适配器推送到云端\n· 建议把 CSV 备份存到电脑或 U 盘，确认无误再动手</string>
     <string name="import_local_only">数据仅存本机</string>
     <string name="import_version_local">当前版本 v%1$s · 数据仅存本机</string>
-
     <!-- ==================== 短信备份 ==================== -->
     <string name="sms_title">短信备份</string>
     <plurals name="sms_subtitle">
@@ -114,15 +110,14 @@
     <string name="sms_action_export_system">导出到系统短信</string>
     <string name="sms_action_export_system_desc">把本应用里的短信写回手机短信应用，按内容+时间去重</string>
     <string name="sms_action_export_system_desc_need_default">需要先设为默认短信应用，点击前往系统设置</string>
-    <string name="sms_action_clear_data">清空短信</string>
-    <string name="sms_action_clear_data_desc">在「清空数据」页里选短信，可选择清空系统短信或本应用的加密副本</string>
     <string name="sms_section_backed_up">已备份的短信</string>
-    <string name="sms_list_hint">点击可展开全文，长按号码可直接拨号。列表按导入顺序倒序展示，最多加载 200 条。</string>
+    <string name="sms_list_hint">点击可展开全文，号码右侧可直接拨号。列表按导入顺序倒序展示，每页加载 200 条。</string>
+    <string name="sms_list_progress">已显示 %1$d 条，共 %2$d 条</string>
     <string name="sms_empty_none">还没有备份任何短信</string>
     <string name="sms_empty_need_permission">需要短信读取权限才能显示内容</string>
     <string name="sms_permission_title">短信权限说明</string>
-    <string name="sms_permission_body">读取短信需要 READ_SMS 权限，删除短信需要 WRITE_SMS 权限。\n\n授予后，只有本应用能读到短信内容，且数据全部加密存在本机。</string>
-    <string name="sms_not_default_app">还没有设为默认短信应用，暂时无法清空系统短信</string>
+    <string name="sms_permission_body">读取短信需要 READ_SMS 权限，导出或清空短信需要 WRITE_SMS 权限（要把本应用设为默认短信应用）。\n\n授予后，只有本应用能读到短信内容，且数据全部加密存在本机。</string>
+    <string name="sms_not_default_app">还没有设为默认短信应用，暂时无法导出到系统短信</string>
     <string name="sms_cannot_open_settings">无法打开系统设置，请手动到「设置 - 应用 - 默认应用」中修改</string>
     <string name="sms_unknown_number">未知号码</string>
 
@@ -143,10 +138,10 @@
     <string name="calllog_export_csv">导出 CSV</string>
     <string name="calllog_privacy_hint">通话记录属于敏感数据，只有你授权后本应用才会读取。所有数据仅存在这台手机上，不上传、不联网。</string>
     <string name="calllog_section_manage">管理</string>
-    <string name="calllog_action_clear_data">清空通话记录</string>
-    <string name="calllog_action_clear_data_desc">在「清空数据」页里选通话记录，可选择清空系统记录或本应用的加密副本</string>
+    <string name="calllog_manage_note">通话记录无法写回系统 —— 系统只允许自带电话应用写入通话记录，普通应用没有这个权限。</string>
     <string name="calllog_section_backed_up">已备份的通话记录</string>
-    <string name="calllog_list_hint">点击号码可直接拨号。列表按导入顺序倒序展示，最多加载 200 条。</string>
+    <string name="calllog_list_hint">点击号码可直接拨号。列表按导入顺序倒序展示，每页加载 200 条。</string>
+    <string name="calllog_list_progress">已显示 %1$d 条，共 %2$d 条</string>
     <string name="calllog_empty_none">还没有备份任何通话记录</string>
     <string name="calllog_empty_need_permission">需要通话记录读取权限才能显示内容</string>
     <string name="calllog_unknown_number">未知号码</string>
@@ -207,7 +202,7 @@
     <string name="about_what_title">它解决什么问题</string>
     <string name="about_what_body">把手机通讯录搬进一个加密的本地库：整条记录用 AES-256-GCM 加密后落盘，数据库里没有明文的姓名和号码；再配合来电识别悬浮窗，陌生号码也能看出是谁。</string>
     <string name="about_features_title">核心功能</string>
-    <string name="about_feature_import_title">导入 / 导出</string>
+    <string name="about_feature_import_title">通讯录备份</string>
     <string name="about_feature_import_desc">一次性把系统通讯录搬进来；清空系统后仍可随时导回系统，卸载也不怕</string>
     <string name="about_feature_crypto_title">加密存储</string>
     <string name="about_feature_crypto_desc">密钥由系统 Keystore 生成，永不落盘、不可导出；数据库被拷走也读不出内容</string>
@@ -425,7 +420,6 @@
     <string name="clear_data_need_select">请至少勾选一项要清空的内容</string>
     <string name="clear_data_warning_title">删除前请确认</string>
     <string name="clear_data_warning_body">· 清空不可撤销，请确认已经导出 CSV 备份\n· 通讯录若来自云端账户，删除可能同步到云端\n· 短信的删除需要本应用是默认短信应用，否则系统会拒绝\n· 通话记录的删除权限只授予系统应用，普通 App 会被拒绝</string>
-    <string name="clear_data_hint">所有清空操作都在首页右上角菜单的「清空数据」里</string>
     <string name="busy_clear_data">正在清空…</string>
     <string name="clear_data_done_title">清空完成</string>
     <string name="clear_data_result_deleted">%1$s：已删除 %2$d 条</string>

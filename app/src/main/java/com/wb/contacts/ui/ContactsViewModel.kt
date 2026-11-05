@@ -14,6 +14,7 @@ import com.wb.contacts.data.ArchiveRepository
 import com.wb.contacts.data.CallRecord
 import com.wb.contacts.data.Contact
 import com.wb.contacts.data.ContactsRepository
+import com.wb.contacts.data.CsvExporter
 import com.wb.contacts.data.SmsMessage
 import com.wb.contacts.system.SystemCallLog
 import com.wb.contacts.system.SystemContacts
@@ -322,14 +323,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             screen = Screen.Home
             toast = context.getString(R.string.toast_deleted)
         }
-    }
-
-    fun requestClearAll() {
-        openClearData()
-    }
-
-    fun dismissClearAll() {
-        screen = Screen.Home
     }
 
     fun consumeToast() {
@@ -968,19 +961,25 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     /** 页面展示条数上限：一次解密几千条会拖慢首屏，分批加载更稳 */
     private val PAGE_SIZE = 200
 
+    /** 导出时每批解密的条数：一次一页，写完就释放，不用把全表塞进内存 */
+    private val EXPORT_PAGE_SIZE = 500
+
     fun loadSms(append: Boolean = false) {
-        if (!PermissionUtil.canReadSms(context)) {
-            smsLoaded = true
-            smsMessages = emptyList()
-            return
-        }
         viewModelScope.launch {
+            // 本应用加密副本的条数与系统权限无关，先算出来
+            val total = withContext(Dispatchers.IO) {
+                runCatching { archiveRepo.smsTable.count() }.getOrDefault(0)
+            }
+            localSmsCount = total
+
+            if (!PermissionUtil.canReadSms(context)) {
+                smsLoaded = true
+                smsMessages = emptyList()
+                return@launch
+            }
             val offset = if (append) smsMessages.size else 0
             val page = withContext(Dispatchers.IO) {
                 runCatching { archiveRepo.smsTable.page(offset, PAGE_SIZE) }.getOrDefault(emptyList())
-            }
-            val total = withContext(Dispatchers.IO) {
-                runCatching { archiveRepo.smsTable.count() }.getOrDefault(0)
             }
             smsMessages = if (append) smsMessages + page else page
             smsLoaded = true
@@ -1063,26 +1062,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun requestWipeSms() {
-        // 删除入口已集中到「清空数据」页，这里只保留跳转
-        openClearData()
-    }
-
-    fun deleteSms(id: Long) {
-        viewModelScope.launch {
-            archiveRepo.smsTable.delete(id)
-            loadSms()
-        }
-    }
-
     /** 把本应用里的短信写回系统 */
     fun exportSmsToSystem() {
         if (!PermissionUtil.canWriteSms(context)) {
             toast = context.getString(R.string.err_write_sms)
             return
         }
-        val list = smsMessages
-        if (list.isEmpty()) {
+        if (localSmsCount <= 0) {
             toast = context.getString(R.string.err_no_sms)
             return
         }
@@ -1091,7 +1077,12 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         busyText = context.getString(R.string.busy_export_sms)
         viewModelScope.launch {
             val summary = withContext(Dispatchers.IO) {
-                runCatching { SystemSms.exportToSystem(context, list) }
+                runCatching {
+                    // 导出全表：界面上只渲染了第一页，不能只把那 200 条写回去
+                    val all = ArrayList<SmsMessage>()
+                    archiveRepo.smsTable.forEachPage(EXPORT_PAGE_SIZE) { all += it }
+                    SystemSms.exportToSystem(context, all)
+                }
             }
             busy = false
             busyText = ""
@@ -1120,8 +1111,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun exportSmsCsv(uri: Uri) {
-        val list = smsMessages
-        if (list.isEmpty()) {
+        if (localSmsCount <= 0) {
             toast = context.getString(R.string.err_no_sms_export)
             return
         }
@@ -1129,7 +1119,9 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         busyText = context.getString(R.string.busy_export_sms_backup)
         viewModelScope.launch {
             val count = withContext(Dispatchers.IO) {
-                runCatching { SystemSms.exportCsv(context, uri, list) }.getOrDefault(-1)
+                runCatching {
+                    CsvExporter.exportSms(context, uri, archiveRepo.smsTable)
+                }.getOrDefault(-1)
             }
             busy = false
             busyText = ""
@@ -1147,12 +1139,17 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     // ————————————————— 通话记录备份 —————————————————
 
     fun loadCallLog(append: Boolean = false) {
-        if (!PermissionUtil.canReadCallLog(context)) {
-            callLogLoaded = true
-            callRecords = emptyList()
-            return
-        }
         viewModelScope.launch {
+            // 本应用加密副本的条数与系统权限无关，先算出来
+            localCallCount = withContext(Dispatchers.IO) {
+                runCatching { archiveRepo.callTable.count() }.getOrDefault(0)
+            }
+
+            if (!PermissionUtil.canReadCallLog(context)) {
+                callLogLoaded = true
+                callRecords = emptyList()
+                return@launch
+            }
             val offset = if (append) callRecords.size else 0
             val page = withContext(Dispatchers.IO) {
                 runCatching { archiveRepo.callTable.page(offset, PAGE_SIZE) }.getOrDefault(emptyList())
@@ -1236,21 +1233,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun requestWipeCalls() {
-        // 删除入口已集中到「清空数据」页，这里只保留跳转
-        openClearData()
-    }
-
-    fun deleteCall(id: Long) {
-        viewModelScope.launch {
-            archiveRepo.callTable.delete(id)
-            loadCallLog()
-        }
-    }
-
     fun exportCallsCsv(uri: Uri) {
-        val list = callRecords
-        if (list.isEmpty()) {
+        if (localCallCount <= 0) {
             toast = context.getString(R.string.err_no_calls_export)
             return
         }
@@ -1258,7 +1242,9 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         busyText = context.getString(R.string.busy_export_calls_backup)
         viewModelScope.launch {
             val count = withContext(Dispatchers.IO) {
-                runCatching { SystemCallLog.exportCsv(context, uri, list) }.getOrDefault(-1)
+                runCatching {
+                    CsvExporter.exportCalls(context, uri, archiveRepo.callTable)
+                }.getOrDefault(-1)
             }
             busy = false
             busyText = ""

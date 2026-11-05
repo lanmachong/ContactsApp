@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CallMade
 import androidx.compose.material.icons.filled.CallMissed
 import androidx.compose.material.icons.filled.CallReceived
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -84,7 +83,6 @@ fun CallLogScreen(vm: ContactsViewModel) {
     }
 
     val canRead = remember(tick) { PermissionUtil.canReadCallLog(context) }
-    val canWrite = remember(tick) { PermissionUtil.canWriteCallLog(context) }
 
     Scaffold(
         topBar = {
@@ -96,7 +94,7 @@ fun CallLogScreen(vm: ContactsViewModel) {
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            pluralStringResource(R.plurals.calllog_subtitle, vm.callRecords.size, vm.callRecords.size),
+                            pluralStringResource(R.plurals.calllog_subtitle, vm.localCallCount, vm.localCallCount),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -142,7 +140,7 @@ fun CallLogScreen(vm: ContactsViewModel) {
                 )
                 StatPill(
                     stringResource(R.string.calllog_stat_local),
-                    pluralStringResource(R.plurals.calllog_stat_count, vm.callRecords.size, vm.callRecords.size)
+                    pluralStringResource(R.plurals.calllog_stat_count, vm.localCallCount, vm.localCallCount)
                 )
             }
 
@@ -183,7 +181,7 @@ fun CallLogScreen(vm: ContactsViewModel) {
                                 .format(Date())
                             exportLauncher.launch("calls-$stamp.csv")
                         },
-                        enabled = vm.callRecords.isNotEmpty() && !vm.busy,
+                        enabled = vm.localCallCount > 0 && !vm.busy,
                         modifier = Modifier.weight(1f)
                     ) { Text(stringResource(R.string.calllog_export_csv)) }
                 }
@@ -207,12 +205,10 @@ fun CallLogScreen(vm: ContactsViewModel) {
             )
             Spacer(Modifier.height(8.dp))
 
-            ActionRow(
-                title = stringResource(R.string.calllog_action_clear_data),
-                desc = stringResource(R.string.calllog_action_clear_data_desc),
-                enabled = !vm.busy,
-                danger = true,
-                onClick = { vm.openClearData() }
+            Text(
+                stringResource(R.string.calllog_manage_note),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(16.dp))
@@ -228,6 +224,14 @@ fun CallLogScreen(vm: ContactsViewModel) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (vm.callLogLoaded && vm.localCallCount > 0) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    stringResource(R.string.calllog_list_progress, vm.callRecords.size, vm.localCallCount),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Spacer(Modifier.height(8.dp))
 
             when {
@@ -249,10 +253,7 @@ fun CallLogScreen(vm: ContactsViewModel) {
                         modifier = Modifier.fillMaxWidth().height(420.dp)
                     ) {
                         items(vm.callRecords, key = { it.id }) { record ->
-                            CallRecordRow(
-                                record = record,
-                                onDelete = { vm.deleteCall(record.id) }
-                            )
+                            CallRecordRow(record = record)
                         }
                     }
                     if (vm.callRecords.size >= 200) {
@@ -272,7 +273,7 @@ fun CallLogScreen(vm: ContactsViewModel) {
 }
 
 @Composable
-private fun CallRecordRow(record: CallRecord, onDelete: () -> Unit) {
+private fun CallRecordRow(record: CallRecord) {
     val context = LocalContext.current
     val time = remember(record.date) {
         runCatching {
@@ -341,14 +342,6 @@ private fun CallRecordRow(record: CallRecord, onDelete: () -> Unit) {
                     text = time,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = stringResource(R.string.action_delete),
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.outline
                 )
             }
         }
