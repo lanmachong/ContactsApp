@@ -752,6 +752,13 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                             }
                         )
                     )
+                    // 系统短信/彩信清完后，把「本应用看不到的那些」说清楚，
+                    // 免得用户对着短信 App 里剩下的几条以为软件在撒谎
+                    if (direction == ClearDirection.SYSTEM && ClearTarget.SMS in targets) {
+                        appendLine()
+                        appendLine()
+                        append(context.getString(R.string.clear_data_sms_manual_hint))
+                    }
                     if (PermissionUtil.isDefaultSmsApp(context)) {
                         appendLine()
                         appendLine()
@@ -770,7 +777,9 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         val target: ClearTarget,
         val deleted: Int,
         val remaining: Int,
-        val denied: Boolean
+        val denied: Boolean,
+        /** 短信专用的分类明细：文字短信 / 彩信各删了多少、还剩多少 */
+        val detail: String? = null
     ) {
         /** 没删干净时给出原因提示，避免用户一头雾水 */
         private fun hintRes(): Int = when (target) {
@@ -810,6 +819,10 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 if (denied || remaining > 0) {
                     append("\n")
                     append(context.getString(hintRes()))
+                }
+                detail?.let {
+                    append("\n")
+                    append(it)
                 }
             }
         }
@@ -896,15 +909,33 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 if (!outcome.denied && outcome.remaining > 0) {
                     val again = withContext(Dispatchers.IO) {
                         runCatching { SystemSms.deleteAll(context) }
-                            .getOrElse { SystemSms.DeleteOutcome(0, outcome.remaining, false) }
+                            .getOrElse {
+                                SystemSms.DeleteOutcome(
+                                    0, outcome.remaining, false,
+                                    smsRemaining = outcome.smsRemaining,
+                                    mmsRemaining = outcome.mmsRemaining
+                                )
+                            }
                     }
                     outcome = SystemSms.DeleteOutcome(
                         deleted = outcome.deleted + again.deleted,
                         remaining = again.remaining,
-                        denied = outcome.denied || again.denied
+                        denied = outcome.denied || again.denied,
+                        smsDeleted = outcome.smsDeleted + again.smsDeleted,
+                        mmsDeleted = outcome.mmsDeleted + again.mmsDeleted,
+                        smsRemaining = again.smsRemaining,
+                        mmsRemaining = again.mmsRemaining
                     )
                 }
-                ClearResult(target, outcome.deleted, outcome.remaining, outcome.denied)
+                // 分类明细：删掉/剩下的分别是文字短信还是彩信，别再只报一个笼统数字
+                val detail = context.getString(
+                    R.string.clear_data_sms_breakdown,
+                    outcome.smsDeleted,
+                    outcome.mmsDeleted,
+                    outcome.smsRemaining,
+                    outcome.mmsRemaining
+                )
+                ClearResult(target, outcome.deleted, outcome.remaining, outcome.denied, detail)
             }
         }
         ClearTarget.CALLS -> {

@@ -109,8 +109,8 @@
         <item quantity="other">%1$d 条已加密保存</item>
     </plurals>
     <string name="sms_info_title">把手机短信搬进加密库</string>
-    <string name="sms_info_desc">整条短信用 AES-256-GCM 加密后写入本机数据库，库里没有任何明文内容。系统里的原短信可以随后清掉，防流氓软件读取。</string>
-    <string name="sms_stat_system">系统短信</string>
+    <string name="sms_info_desc">整条短信用 AES-256-GCM 加密后写入本机数据库，库里没有任何明文内容。系统里的原短信可以随后清掉，防流氓软件读取。注意：加密库只收文字短信，彩信正文不会入库，清空系统彩信前请先自行另存。</string>
+    <string name="sms_stat_system">系统短信/彩信</string>
     <string name="sms_stat_local">本应用</string>
     <plurals name="sms_stat_count">
         <item quantity="other">%1$d 条</item>
@@ -212,6 +212,8 @@
     <string name="about_what_title">它解决什么问题</string>
     <string name="about_what_body">把手机通讯录、短信、通话记录一起搬进一个加密的本地库：整条记录用 AES-256-GCM 加密后落盘，数据库里没有明文的姓名、号码和短信内容；再配合来电识别悬浮窗，陌生号码也能看出是谁。</string>
     <string name="about_update_title">本次更新</string>
+    <string name="about_update_v1_8_3">v1.8.3</string>
+    <string name="about_update_v1_8_3_desc">清空系统短信时一并清理彩信，系统条数改为「文字短信 + 彩信」；结果按类型分别回报删了多少、还剩多少，并写明哪些需要手动删</string>
     <string name="about_update_v1_8_2">v1.8.2</string>
     <string name="about_update_v1_8_2_desc">还原/清空后醒目提醒手动切回默认短信应用；恢复系统通话记录的删除能力，清空系统里的短信与通话记录重新可选</string>
     <string name="about_update_v1_8_1">v1.8.1</string>
@@ -222,7 +224,7 @@
     <string name="about_feature_crypto_title">加密存储</string>
     <string name="about_feature_crypto_desc">密钥由系统 Keystore 生成，永不落盘、不可导出；数据库被拷走也读不出内容</string>
     <string name="about_feature_sms_title">短信备份</string>
-    <string name="about_feature_sms_desc">短信内容整体加密入库，可查看、可导出 CSV；写回或清空系统短信需要先成为默认短信应用，用完请手动切回原来的应用</string>
+    <string name="about_feature_sms_desc">文字短信整体加密入库，可查看、可导出 CSV；写回或清空系统短信需要先成为默认短信应用，用完请手动切回原来的应用。彩信正文不入库</string>
     <string name="about_feature_call_title">通话记录备份</string>
     <string name="about_feature_call_desc">通话记录加密留存，号码与时长不落明文，随时能查能导出；可以清空系统里的记录，但写不回手机通话记录</string>
     <string name="about_feature_caller_title">来电识别</string>
@@ -433,7 +435,7 @@
     <string name="clear_data_target_sms">短信</string>
     <string name="clear_data_target_calls">通话记录</string>
     <string name="clear_data_target_contacts_desc">系统 %1$d 人 · 本应用 %2$d 人</string>
-    <string name="clear_data_target_sms_desc">系统 %1$d 条 · 本应用 %2$d 条</string>
+    <string name="clear_data_target_sms_desc">系统 %1$d 条（含彩信）· 本应用 %2$d 条</string>
     <string name="clear_data_target_calls_desc">系统 %1$d 条 · 本应用 %2$d 条</string>
     <string name="clear_data_direction_system">清空系统里的</string>
     <string name="clear_data_direction_system_desc">删除手机系统应用中的原始数据，本应用的加密副本保留。短信需要本应用是默认短信应用，通话记录需要通话记录写入权限，条件没到位时会先提示你去授权</string>
@@ -447,10 +449,12 @@
     <string name="clear_data_warning_title">删除前请确认</string>
     <string name="clear_data_warning_body">· 清空不可撤销，请确认已经导出 CSV 备份
 · 通讯录若来自云端账户，删除可能同步到云端
-· 清空系统短信会删掉系统里全部短信，包括刚还原回去的
+· 清空系统短信会删掉系统里全部文字短信和彩信，包括刚还原回去的
+· 彩信正文不在本应用的加密备份里，删除后无法恢复，请先自行另存
+· 清空完成后才收到的新短信不会被追删；另一张 SIM 卡、SIM 卡内短信、RCS / 服务号卡片消息也可能看不到，需在短信应用里手动删
 · 清空系统短信需要默认短信应用身份；清空系统通话记录需要 WRITE_CALL_LOG 权限，个别机型会拒绝，删不掉会如实回报
 · 清空本应用里的加密副本不受系统限制，三项都能清</string>
-    <string name="clear_data_sms_system_note">需要本应用是「默认短信应用」才能删；设为默认后记得在操作完切回原来的短信应用</string>
+    <string name="clear_data_sms_system_note">需要本应用是「默认短信应用」才能删；文字短信和彩信都会清，设为默认后记得在操作完切回原来的短信应用</string>
     <string name="clear_data_calls_system_note">需要通话记录写入权限；删除后会回读条数确认，删不掉会如实说明</string>
     <string name="clear_data_sms_role_title">还需要默认短信应用身份</string>
     <string name="clear_data_sms_role_body">Android 4.4 起只有「默认短信应用」能删除系统短信。点下面的按钮去系统设置里设置，清空完成后记得再切回你原来的短信应用 —— 这个身份不会自动换回来。</string>
@@ -462,8 +466,10 @@
     <string name="clear_data_result_deleted">%1$s：已删除 %2$d 条</string>
     <string name="clear_data_result_remaining">，系统里还剩 %1$d 条</string>
     <string name="clear_data_result_denied">%1$s：系统拒绝了删除请求，未能清空</string>
+    <string name="clear_data_sms_breakdown">其中：文字短信已删 %1$d 条、彩信已删 %2$d 条；还剩文字短信 %3$d 条、彩信 %4$d 条。</string>
+    <string name="clear_data_sms_manual_hint">短信应用里若仍显示消息，可能是：本应用看不到的另一张 SIM 卡 / SIM 卡内短信、RCS 或服务号卡片消息（存在厂商私有库），以及清空之后才收到的新短信（不会追删）。这些需要在短信应用里手动删除。</string>
     <string name="clear_data_hint_contacts">通讯录若来自云端账户，删除可能同步到云端。</string>
-    <string name="clear_data_hint_sms">短信要删干净，本应用需要是默认短信应用；双卡机上另一张卡的短信有时也删不掉。彩信不在清理范围内。</string>
+    <string name="clear_data_hint_sms">没删干净时请看下面的分类明细：彩信、另一张 SIM 卡、SIM 卡内短信、RCS / 服务号卡片消息，以及清空后新收到的短信，都可能需要到短信应用里手动删。</string>
     <string name="clear_data_hint_calls">没拿到 WRITE_CALL_LOG 权限时系统不让删；先授予权限再试。个别 ROM 始终拒绝的话，只能在自带电话 App 里手动清。</string>
     <string name="clear_data_local_kept">本应用内的加密副本没有受到影响。</string>
     <string name="clear_data_system_kept">手机系统里的原始数据没有受到影响。</string>

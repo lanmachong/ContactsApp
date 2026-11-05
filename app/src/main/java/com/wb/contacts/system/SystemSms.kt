@@ -1,5 +1,6 @@
 package com.wb.contacts.system
 
+import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
 import android.provider.Telephony
@@ -72,32 +73,81 @@ object SystemSms {
         return result
     }
 
-    fun countAll(context: Context): Int =
-        context.contentResolver.query(
-            Telephony.Sms.CONTENT_URI,
-            arrayOf(Telephony.Sms._ID),
-            null, null, null
-        )?.use { it.count } ?: 0
+    private val SMS_URI: Uri = Telephony.Sms.CONTENT_URI
+    private val MMS_URI: Uri = Telephony.Mms.CONTENT_URI
 
     /**
-     * 系统里仍然存在的短信及其所属的 SIM 卡订阅 ID。
+     * 系统里当前还能查到的短信分项。
      *
-     * 用来诊断「删掉了大部分、却还剩几条」：如果剩余记录的 sub_id
-     * 和刚删掉的不是同一个，说明卡在另一张 SIM 上（双卡机）。
+     * 文字短信在 `content://sms`，彩信在 `content://mms`，**是两张独立的表**。
+     * 早前只统计前者，清空后明明还剩几条彩信，界面却报「系统短信 0 条」——
+     * 那不是删干净了，是压根没去看彩信表。
+     */
+    data class Inventory(
+        val sms: Int,
+        val mms: Int,
+        /** `content://sms` 里按 sub_id 分组；本应用看不到的订阅不会出现在这里 */
+        val perSub: Map<Long, Int>
+    ) {
+        val total: Int get() = sms + mms
+    }
+
+    fun inventory(context: Context): Inventory {
+        val perSub = HashMap<Long, Int>()
+        remainingWithSubId(context).forEach { (_, sub) ->
+            perSub[sub] = (perSub[sub] ?: 0) + 1
+        }
+        return Inventory(countUri(context, SMS_URI), countUri(context, MMS_URI), perSub)
+    }
+
+    /** 界面上的「系统短信」条数 —— 文字短信 + 彩信，别再只报一张表 */
+    fun countAll(context: Context): Int =
+        countUri(context, SMS_URI) + countUri(context, MMS_URI)
+
+    /** 单张表的条数；ROM 上 Provider 不可读时按 0 处理，不让整个页面崩掉 */
+    private fun countUri(context: Context, uri: Uri): Int =
+        runCatching {
+            context.contentResolver.query(
+                uri, arrayOf(Telephony.Sms._ID), null, null, null
+            )?.use { it.count } ?: 0
+        }.getOrDefault(0)
+
+    /**
+     * 系统里仍然存在的文字短信及其所属的 SIM 卡订阅 ID。
+     * 列名做容错：部分 ROM 没有 sub_id 或 _id 列，早前的 getColumnIndexOrThrow
+     * 会直接抛异常，被外层误判成「系统拒绝删除」。
      */
     fun remainingWithSubId(context: Context): List<Pair<Long, Long>> {
         val out = ArrayList<Pair<Long, Long>>()
-        context.contentResolver.query(
-            Telephony.Sms.CONTENT_URI,
-            arrayOf(Telephony.Sms._ID, Telephony.Sms.SUBSCRIPTION_ID),
-            null, null, null
-        )?.use { cursor ->
-            val idIdx = cursor.getColumnIndexOrThrow(Telephony.Sms._ID)
-            val subIdx = cursor.getColumnIndex(Telephony.Sms.SUBSCRIPTION_ID)
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idIdx)
-                val sub = if (subIdx >= 0 && !cursor.isNull(subIdx)) cursor.getLong(subIdx) else -1L
-                out += id to sub
+        runCatching {
+            context.contentResolver.query(
+                SMS_URI,
+                arrayOf(Telephony.Sms._ID, Telephony.Sms.SUBSCRIPTION_ID),
+                null, null, null
+            )?.use { cursor ->
+                val idIdx = cursor.getColumnIndex(Telephony.Sms._ID)
+                val subIdx = cursor.getColumnIndex(Telephony.Sms.SUBSCRIPTION_ID)
+                if (idIdx >= 0) {
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getLong(idIdx)
+                        val sub = if (subIdx >= 0 && !cursor.isNull(subIdx)) cursor.getLong(subIdx) else -1L
+                        out += id to sub
+                    }
+                }
+            }
+        }
+        return out
+    }
+
+    /** 彩信表里残留的 id，按 id 单独删才能触发 part / addr 的级联清理 */
+    private fun remainingMmsIds(context: Context): List<Long> {
+        val out = ArrayList<Long>()
+        runCatching {
+            context.contentResolver.query(
+                MMS_URI, arrayOf(Telephony.Sms._ID), null, null, null
+            )?.use { cursor ->
+                val idx = cursor.getColumnIndex(Telephony.Sms._ID)
+                while (idx >= 0 && cursor.moveToNext()) out += cursor.getLong(idx)
             }
         }
         return out
@@ -106,102 +156,92 @@ object SystemSms {
     /**
      * 一次清空的结果。
      *
-     * @param deleted  实际删掉的条数
-     * @param remaining 系统里还剩多少条（删完通常是 0）
-     * @param denied   系统是否直接拒绝了请求（抛 SecurityException）
+     * 文字短信和彩信分开记，剩下的也分开记 —— 用户看到「还剩 4 条」时，
+     * 得能知道剩的是彩信还是文字短信，好决定要不要手动去删。
      */
     data class DeleteOutcome(
         val deleted: Int,
         val remaining: Int,
-        val denied: Boolean
+        val denied: Boolean,
+        val smsDeleted: Int = deleted,
+        val mmsDeleted: Int = 0,
+        val smsRemaining: Int = remaining,
+        val mmsRemaining: Int = 0
     )
 
     /**
-     * 删除系统短信。
+     * 删除系统短信（文字短信 + 彩信）。
      *
-     * ⚠️ Android 4.4 起只有「默认短信应用」才能删除他人短信；
-     * 权限不足时系统会抛 SecurityException 或静默返回 0，这里如实回报。
+     * ⚠️ Android 4.4 起只有「默认短信应用」才能删；权限不足时系统会抛
+     * SecurityException 或静默返回 0，这里如实回报。
      *
-     * 【为什么会出现「删掉大半、还剩一截」】
-     * 常见的两个原因，这里都做了补救：
-     * 1. 双卡机 —— `content://sms` 的删除只覆盖调用方**有权访问**的那个订阅，
-     *    另一张卡的短信在另一个 sub_id 下。这里把残留记录按 sub_id 分组，
-     *    带上 sub_id 条件逐组再删一次。
-     * 2. 默认短信应用未设置 —— 系统直接拒绝，deleted 会是 0 且 denied 为 true。
+     * 两张表分开处理：
+     * · `content://sms` —— 文字短信
+     * · `content://mms` —— 彩信。早前完全没碰这张表，用户清空后还剩几条彩信，
+     *   界面却因为只查 sms 表而显示「系统短信 0 条」。
      *
-     * 注：彩信存在 `content://mms`，不在本应用的清理范围内。
+     * 第二轮按 id 精确补删：SMS 残留按可见的 sub_id 分组各删一次；
+     * MMS 逐条按 id 删，让 Provider 级联清掉 part / addr。
+     *
+     * 注意：AOSP SmsProvider 的 URI 表里**没有** `content://sms/sub_id=<id>`
+     * 这种路径（只有 icc / icc_subId），早前拼的那个 URI 删除必然返回 0，
+     * 属于空转，已移除。
      */
     fun deleteAll(context: Context): DeleteOutcome {
         val resolver = context.contentResolver
-        var deleted = 0
+        var smsDeleted = 0
+        var mmsDeleted = 0
         var denied = false
 
-        // 第一轮：全量删
-        runCatching {
-            resolver.delete(Telephony.Sms.CONTENT_URI, null, null)
-        }.onSuccess {
-            deleted += it
-        }.onFailure {
-            if (it is SecurityException) denied = true
+        // 第一轮：两张表各做一次全量删
+        runCatching { resolver.delete(SMS_URI, null, null) }
+            .onSuccess { smsDeleted += it }
+            .onFailure { if (it is SecurityException) denied = true }
+        runCatching { resolver.delete(MMS_URI, null, null) }
+            .onSuccess { mmsDeleted += it }
+            .onFailure { /* 个别 ROM 不给删彩信表，回读时如实反映 */ }
+
+        // 第二轮：残留按 id 精确补删
+        remainingWithSubId(context).groupBy { it.second }.forEach { (_, items) ->
+            smsDeleted += deleteByIds(context, SMS_URI, items.map { it.first })
+        }
+        remainingMmsIds(context).forEach { id ->
+            mmsDeleted += runCatching {
+                resolver.delete(ContentUris.withAppendedId(MMS_URI, id), null, null)
+            }.getOrDefault(0)
         }
 
-        // 第二轮：把残留的按 sub_id 分组再删一遍（双卡机补漏）
-        var leftovers = remainingWithSubId(context)
-        if (leftovers.isNotEmpty()) {
-            leftovers.groupBy { it.second }.forEach { (subId, items) ->
-                val ids = items.map { it.first }
-                // 2a. 带上 sub_id 条件精确删
-                deleted += deleteByIds(context, Telephony.Sms.CONTENT_URI, ids, subId)
-                // 2b. 部分机型支持 sub_id 专属的 URI，再试一次
-                if (subId >= 0) {
-                    deleted += deleteByIds(context, subContentUri(subId), ids, null)
-                }
-            }
-            leftovers = remainingWithSubId(context)
+        val inv = inventory(context)
+        val deleted = smsDeleted + mmsDeleted
+        val remaining = inv.total
+        // 一条都没删掉、且系统确实拒绝 —— 判定为没有删除权限
+        if (deleted == 0 && denied) {
+            return DeleteOutcome(0, remaining, true, 0, 0, inv.sms, inv.mms)
         }
-
-        val remaining = leftovers.size
-        // 一条都没删掉、且系统确实拒绝了 —— 判定为没有删除权限
-        if (deleted == 0 && denied) return DeleteOutcome(0, remaining, true)
         // 一条都没删掉、但也没报错 —— 系统静默拒绝（通常是没设为默认短信应用）
-        if (deleted == 0 && remaining > 0) return DeleteOutcome(0, remaining, true)
-        return DeleteOutcome(deleted, remaining, denied)
+        if (deleted == 0 && remaining > 0) {
+            return DeleteOutcome(0, remaining, true, 0, 0, inv.sms, inv.mms)
+        }
+        return DeleteOutcome(
+            deleted, remaining, denied,
+            smsDeleted, mmsDeleted, inv.sms, inv.mms
+        )
     }
 
-    /** 按 id 精确删除（分批，避免 SQL 变量超限）；subId 不为空时附带订阅条件 */
+    /** 按 id 精确删除（分批，避免 SQL 变量超限） */
     fun deleteByIds(context: Context, ids: List<Long>): Int =
-        deleteByIds(context, Telephony.Sms.CONTENT_URI, ids, null)
+        deleteByIds(context, SMS_URI, ids)
 
-    /**
-     * 某个订阅专属的短信 URI。
-     *
-     * 公开 SDK 里没有 `Telephony.Sms.getContentUriForSubId`（API 30 起被移除），
-     * 这里按 AOSP 的 URI 约定手工拼一个；机型不支持时删除会返回 0 或抛异常，
-     * 外层有兜底，不影响主流程。
-     */
-    private fun subContentUri(subId: Long): Uri =
-        Uri.withAppendedPath(Telephony.Sms.CONTENT_URI, "sub_id=$subId")
-
-    private fun deleteByIds(context: Context, uri: Uri, ids: List<Long>, subId: Long?): Int {
+    private fun deleteByIds(context: Context, uri: Uri, ids: List<Long>): Int {
         if (ids.isEmpty()) return 0
         var deleted = 0
         ids.chunked(200).forEach { chunk ->
             val placeholders = chunk.joinToString(",") { "?" }
-            val where = buildString {
-                append("${Telephony.Sms._ID} IN ($placeholders)")
-                if (subId != null && subId >= 0) {
-                    append(" AND ${Telephony.Sms.SUBSCRIPTION_ID} = ?")
-                }
-            }
-            val args = ArrayList<String>(chunk.size + 1).apply {
-                addAll(chunk.map { it.toString() })
-                if (subId != null && subId >= 0) add(subId.toString())
-            }
             deleted += runCatching {
                 context.contentResolver.delete(
                     uri,
-                    where,
-                    args.toTypedArray()
+                    "${Telephony.Sms._ID} IN ($placeholders)",
+                    chunk.map { it.toString() }.toTypedArray()
                 )
             }.getOrDefault(0)
         }
