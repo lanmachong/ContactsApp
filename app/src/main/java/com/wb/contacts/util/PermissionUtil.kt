@@ -117,6 +117,17 @@ object PermissionUtil {
         return if (canResolve(context, intent)) intent else null
     }
 
+    /**
+     * 「切回原来的默认短信应用」的跳转目标。
+     *
+     * 注意：Android **没有**让应用主动交还角色的 API ——
+     * createRequestRoleIntent() 是「请求成为默认」，不能反向调用；
+     * 角色只能由用户在系统设置里改选别的应用才会转移。
+     * 所以这里打开系统「默认应用」页，让用户手动把短信应用选回原来的那个。
+     */
+    fun switchBackDefaultSmsIntent(context: Context): Intent =
+        defaultAppsSettingsIntent(context) ?: appDetailsIntent(context)
+
     /** 这个 Intent 在当前设备上有没有应用能接住 */
     fun canResolve(context: Context, intent: Intent): Boolean =
         runCatching {
@@ -130,9 +141,13 @@ object PermissionUtil {
     /**
      * 写 / 删通话记录。
      *
-     * WRITE_CALL_LOG 是 signature|privileged 权限，普通应用拿不到，
-     * 而且清单里声明它也换不来权限，只会在系统的应用权限列表里多一条吓人条目，
-     * 所以本应用干脆不声明它。系统会拒绝删除，这里如实告知用户。
+     * WRITE_CALL_LOG 属于 CALL_LOG 权限组的 **dangerous 运行时权限**：
+     * 清单声明 + 运行时申请即可拿到，第三方应用能删通话记录。
+     * 之前误判成 signature|privileged 而删掉了声明，导致清空系统通话记录一直失败。
+     *
+     * Google Play 的政策要求「默认电话/短信/助理应用」才能申请这组权限，
+     * 但那是上架审核规则，不是系统限制；本项目侧载分发，系统层面照常授予。
+     * 个别 ROM 仍可能拒绝，调用方必须按结果如实回报，不能假装删掉了。
      */
     fun canWriteCallLog(context: Context): Boolean =
         has(context, Manifest.permission.WRITE_CALL_LOG)

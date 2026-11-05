@@ -68,9 +68,9 @@ enum class ClearDirection { SYSTEM, LOCAL }
 /**
  * 要还原回系统的内容。
  *
- * 只有通讯录和短信 —— 通话记录写不回去：WRITE_CALL_LOG 是
- * signature|privileged 权限，普通应用永远拿不到，系统只允许自带电话应用写入。
- * 与其放一个必然失败的选项让人点，不如不放。
+ * 只有通讯录和短信 —— 通话记录实测写不回去：CallLog Provider 会拒绝新增记录。
+ * 注意这和「删」是两回事：WRITE_CALL_LOG 是能申请的运行时权限，通话记录删得掉，
+ * 但写不回。与其放一个必然失败的选项让人点，不如不放。
  */
 enum class RestoreTarget { CONTACTS, SMS }
 
@@ -673,23 +673,19 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleClearTarget(target: ClearTarget, on: Boolean) {
-        // 「清空系统里的」方向下只有通讯录能选，其余两项一律拒绝
-        if (on && clearDirection == ClearDirection.SYSTEM && target != ClearTarget.CONTACTS) return
         clearTargets = if (on) clearTargets + target else clearTargets - target
     }
 
     /**
      * 选择清空方向（方法名不叫 setClearDirection，避免和属性的 setter 同名冲突）。
      *
-     * 切到「清空系统里的」时，把短信和通话记录从勾选里摘掉 ——
-     * 这两项系统不放开给普通应用（短信要默认短信应用身份，通话记录根本不放行），
-     * 界面已经把它们禁用了，这里再兜一层，防止状态残留。
+     * 三项在任何方向下都可以勾选：系统方向各有前置条件
+     * （短信要默认短信应用身份、通话记录要 WRITE_CALL_LOG），
+     * 界面负责提前提示并给跳转，真正删不掉时由 clearSystem 如实回报，
+     * 不再一刀切禁用 —— 用户实测过通话记录是能删掉的。
      */
     fun selectClearDirection(direction: ClearDirection) {
         clearDirection = direction
-        if (direction == ClearDirection.SYSTEM) {
-            clearTargets = clearTargets - ClearTarget.SMS - ClearTarget.CALLS
-        }
     }
 
     fun onClearConfirmChange(value: String) {
@@ -707,8 +703,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * 执行清空。
      *
-     * 逐项独立处理，一项失败不影响其他项 —— 比如系统通话记录删不掉
-     * （普通应用没有 WRITE_CALL_LOG），短信和通讯录照样能清。
+     * 逐项独立处理，一项失败不影响其他项 —— 比如没拿到 WRITE_CALL_LOG 时
+     * 通话记录删不掉，短信和通讯录照样能清。
      * 最后把每项的结果汇总成一张弹窗，如实回报删了多少、还剩多少。
      */
     fun executeClear() {
@@ -756,6 +752,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                             }
                         )
                     )
+                    if (PermissionUtil.isDefaultSmsApp(context)) {
+                        appendLine()
+                        appendLine()
+                        append(context.getString(R.string.sms_role_switch_back_notice))
+                    }
                 }
             )
             // 执行完把勾选清掉，避免用户返回再进来时看到上次的残留状态
@@ -848,10 +849,10 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      * 每一项的删除权限不一样，失败的原因也各不相同，如实回报：
      * · 通讯录 —— 需要 WRITE_CONTACTS
      * · 短信 —— Android 4.4 起必须是默认短信应用
-     * · 通话记录 —— WRITE_CALL_LOG 是 signature 级权限，普通 App 拿不到
+     * · 通话记录 —— 需要 WRITE_CALL_LOG（dangerous 运行时权限，声明后申请即可）
      *
-     * 短信和通话记录在界面上是禁用状态（只有通讯录能选），
-     * 这里再兜一层：万一状态残留，也不去动系统的短信和通话记录。
+     * 三项都允许勾选。条件没满足时不硬拦死，让系统给结果并如实回报 ——
+     * 不同 ROM 的实际能力不一样，一刀切禁用反而挡住了本来删得掉的机器。
      */
     private suspend fun clearSystem(target: ClearTarget): ClearResult = when (target) {
         ClearTarget.CONTACTS -> {
@@ -881,8 +882,10 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         ClearTarget.SMS -> {
-            // 界面已禁用这一项；这里再兜一层，不去动用户的系统短信
-            if (!PermissionUtil.canWriteSms(context)) {
+            // 与还原短信同一个门槛：只看是不是默认短信应用。
+            // WRITE_SMS 是角色的伴随结果，个别 ROM 上 checkSelfPermission 仍为 false，
+            // 拿它当拦截条件会把已经拿到身份的用户挡在门外。
+            if (!PermissionUtil.isDefaultSmsApp(context)) {
                 ClearResult(target, 0, 0, true)
             } else {
                 var outcome = withContext(Dispatchers.IO) {
@@ -905,18 +908,31 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         ClearTarget.CALLS -> {
-            // 界面已禁用这一项；系统也不允许普通应用删通话记录
+            // WRITE_CALL_LOG 是运行时权限，拿到就能删。删完必须回读条数，
+            // 不能以 delete() 的返回值当成功 —— 部分 ROM 会静默返回 0。
             if (!PermissionUtil.canWriteCallLog(context)) {
                 ClearResult(target, 0, 0, true)
             } else {
-                val deleted = withContext(Dispatchers.IO) {
+                var deleted = withContext(Dispatchers.IO) {
                     runCatching { SystemCallLog.deleteAll(context) }.getOrDefault(-1)
                 }
-                val remaining = withContext(Dispatchers.IO) {
+                var remaining = withContext(Dispatchers.IO) {
                     runCatching { SystemCallLog.countAll(context) }.getOrDefault(0)
                 }
-                if (deleted < 0) ClearResult(target, 0, remaining, true)
-                else ClearResult(target, deleted, remaining, false)
+                if (deleted >= 0 && remaining > 0) {
+                    val again = withContext(Dispatchers.IO) {
+                        runCatching { SystemCallLog.deleteAll(context) }.getOrDefault(0)
+                    }
+                    if (again > 0) {
+                        deleted += again
+                        remaining = withContext(Dispatchers.IO) {
+                            runCatching { SystemCallLog.countAll(context) }.getOrDefault(remaining)
+                        }
+                    }
+                }
+                // 抛异常、或一条没删却还剩着 —— 都是系统实际拒绝了
+                val denied = deleted < 0 || (deleted == 0 && remaining > 0)
+                ClearResult(target, deleted.coerceAtLeast(0), remaining, denied)
             }
         }
     }
@@ -943,7 +959,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      * 执行还原：把本应用加密库里的内容写回手机系统。
      *
      * 逐项独立处理，一项失败不影响其他项 —— 比如短信需要本应用是默认短信应用，
-     * 通讯录和通话记录照样能还原。最后把每项的结果汇总成一张弹窗，如实回报写了多少。
+     * 通讯录照样能还原。最后把每项的结果汇总成一张弹窗，如实回报写了多少。
+     * 通话记录实测写不回系统（CallLog Provider 会拒绝），因此不提供这一项。
      *
      * 写入前先检查系统里已有的同名内容并跳过，避免把通讯录写成两份、短信写成两遍。
      */
@@ -983,6 +1000,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     appendLine()
                     append(context.getString(R.string.restore_data_local_kept))
+                    if (PermissionUtil.isDefaultSmsApp(context)) {
+                        appendLine()
+                        appendLine()
+                        append(context.getString(R.string.sms_role_switch_back_notice))
+                    }
                 }
             )
             restoreTargets = emptySet()

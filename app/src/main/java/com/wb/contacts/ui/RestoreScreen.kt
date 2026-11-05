@@ -6,7 +6,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Surface
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.TextButton
 import com.wb.contacts.util.SmsRoleDiagnostics
@@ -56,12 +55,14 @@ import com.wb.contacts.R
  *
  * 与「清空数据」页互为镜像：一个往外删，一个往回写，入口都在首页右上角菜单里。
  *
- * · 勾选要还原的内容（通讯录 / 短信 / 通话记录），默认一个都不勾
+ * · 勾选要还原的内容（通讯录 / 短信），默认一个都不勾
  * · 输入确认词才允许执行
  *
  * 写入前会先比对系统里已有的内容并跳过，不会把通讯录写成两份、短信写成两遍。
- * 至于哪些内容写得回去，取决于系统的权限 —— 短信需要本应用是默认短信应用，
- * 通话记录则只有系统自带电话应用才能写，这里的提示会如实说明。
+ * 短信需要本应用是默认短信应用；通话记录实测写不回系统（CallLog Provider 拒绝），
+ * 所以这里不提供这一项 —— 能删不等于能写回去。
+ *
+ * 成为默认短信应用后角色不会自动交还，页面顶部会常驻提醒并给出切回入口。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,6 +86,10 @@ fun RestoreDataScreen(vm: ContactsViewModel) {
     ) { tick++ }
 
     val requestDefaultSmsApp = rememberDefaultSmsAppLauncher(
+        onReturn = { tick++ },
+        onFail = { vm.notify(context.getString(R.string.sms_cannot_open_settings)) }
+    )
+    val switchBackSmsApp = rememberSwitchBackSmsLauncher(
         onReturn = { tick++ },
         onFail = { vm.notify(context.getString(R.string.sms_cannot_open_settings)) }
     )
@@ -128,6 +133,13 @@ fun RestoreDataScreen(vm: ContactsViewModel) {
 
             Spacer(Modifier.height(18.dp))
 
+            // 已经是默认短信应用时，把「不会自动交还」这件事放在最显眼的位置：
+            // 用户常常设完就忘了切回，直到发现新短信没有通知才想起来。
+            if (canWriteSms) {
+                SmsRoleActiveNotice(switchBackSmsApp)
+                Spacer(Modifier.height(18.dp))
+            }
+
             // —— 内容选择 ——
             Text(
                 stringResource(R.string.restore_data_section_content),
@@ -161,7 +173,7 @@ fun RestoreDataScreen(vm: ContactsViewModel) {
 
             // —— 权限预检：写不回去的提前说清楚 ——
             if (needsContactsPerm) {
-                RestoreBlockNotice(
+                ActionNotice(
                     title = stringResource(R.string.restore_data_contacts_perm_title),
                     body = stringResource(R.string.restore_data_contacts_perm_body),
                     actionText = stringResource(R.string.restore_data_contacts_perm_action),
@@ -174,7 +186,7 @@ fun RestoreDataScreen(vm: ContactsViewModel) {
                 Spacer(Modifier.height(12.dp))
             }
             if (needsSmsRole) {
-                RestoreBlockNotice(
+                ActionNotice(
                     title = stringResource(R.string.restore_data_sms_role_title),
                     body = stringResource(R.string.restore_data_sms_role_body),
                     actionText = stringResource(R.string.restore_data_sms_role_action),
@@ -277,54 +289,6 @@ private fun RestoreTargetRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-/**
- * 权限 / 身份预检提示。
- *
- * 写回系统这件事，不同内容要的东西不一样：通讯录要写权限，短信要默认短信应用身份。
- * 这里提前说清楚并给出跳转按钮，别让用户写完了才发现被系统拒绝。
- */
-@Composable
-private fun RestoreBlockNotice(
-    title: String,
-    body: String,
-    actionText: String,
-    onAction: () -> Unit
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = Color(0xFFB45309),
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    title,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                body,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = onAction,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(actionText) }
         }
     }
 }

@@ -153,8 +153,8 @@ fun CallLogScreen(vm: ContactsViewModel) {
                 if (!canRead) {
                     Button(
                         onClick = {
-                            // 只申请 READ_CALL_LOG。WRITE_CALL_LOG 是 signature|privileged 权限，
-                            // 普通应用永远拿不到，申请了也没有意义。
+                            // 这里只申请「读」；WRITE_CALL_LOG 是清系统通话记录时才申请的
+                            // 运行时权限，放在「清空数据」页按需申请，不在备份页提前索要。
                             permissionLauncher.launch(
                                 arrayOf(android.Manifest.permission.READ_CALL_LOG)
                             )

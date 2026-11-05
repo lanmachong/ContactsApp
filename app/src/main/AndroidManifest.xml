@@ -44,11 +44,16 @@
     <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH" />
 
     <!--
-      通话记录：只申请「读」。
-      WRITE_CALL_LOG 是 signature|privileged 权限，普通应用永远拿不到，
-      声明它只会在系统的应用权限列表里多出一条吓人的条目，没有实际作用，故不声明。
+      通话记录：读 + 写/删。
+
+      v1.3.0 曾把 WRITE_CALL_LOG 误判成 signature|privileged 而删掉声明，
+      之后「清空系统通话记录」就一直失败。实际上它属于 CALL_LOG 权限组的
+      dangerous 运行时权限，声明后按需申请就能拿到，第三方应用可以删除通话记录
+      （Google Play 的上架政策另有限制，但那是审核规则，不是系统限制）。
+      个别 ROM 会拒绝授予，那时如实回报删除失败即可，不该直接禁用入口。
     -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
 
     <!-- 4. 来电识别悬浮窗：来电状态 + 悬浮窗 + 前台服务 + 通知 -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />

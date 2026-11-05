@@ -1,13 +1,8 @@
 package com.wb.contacts.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.Color
-import androidx.compose.material3.Surface
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,10 +36,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wb.contacts.R
+import com.wb.contacts.util.PermissionUtil
 
 /**
  * 清空数据 —— 所有删除操作的唯一入口。
@@ -53,19 +50,42 @@ import com.wb.contacts.R
  * 每处的措辞和后果说明都不一样，用户很难判断自己删的到底是哪一份数据。
  * 现在集中到这一页：
  *
- * · 勾选要清空的内容（短信 / 通话记录 / 通讯录），默认一个都不勾
  * · 选方向：清空系统里的，还是清空本应用里的加密副本
+ * · 勾选要清空的内容（短信 / 通话记录 / 通讯录），默认一个都不勾
  * · 输入确认词才允许执行 —— 删除不可撤销，值得多按一次键盘
+ *
+ * 「清空系统里的」三项都能勾，但各有前置条件：
+ * 短信要本应用是默认短信应用，通话记录要 WRITE_CALL_LOG 运行时权限。
+ * v1.8.0 曾把后两项一刀切禁用，实际挡住了本来删得掉的机器 ——
+ * 现在改成提前提示 + 给跳转，删不掉时由 ViewModel 回读条数如实回报。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClearDataScreen(vm: ContactsViewModel) {
     val keyword = stringResource(R.string.clear_data_confirm_keyword)
+    val context = LocalContext.current
+    var tick by remember { mutableStateOf(0) }
+    OnResume { tick++ }
 
-    // 清系统里的原始数据时，只有通讯录是系统真正允许普通应用删的：
-    // 短信要默认短信应用身份，通话记录系统根本不放行。
-    // 与其让用户勾了再失败，不如在方向选定的当下就禁用掉，并把原因写清楚。
     val clearingSystem = vm.clearDirection == ClearDirection.SYSTEM
+    val isDefaultSms = remember(tick) { PermissionUtil.isDefaultSmsApp(context) }
+    val canWriteCallLog = remember(tick) { PermissionUtil.canWriteCallLog(context) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { tick++ }
+    val requestDefaultSmsApp = rememberDefaultSmsAppLauncher(
+        onReturn = { tick++ },
+        onFail = { vm.notify(context.getString(R.string.sms_cannot_open_settings)) }
+    )
+    val switchBackSmsApp = rememberSwitchBackSmsLauncher(
+        onReturn = { tick++ },
+        onFail = { vm.notify(context.getString(R.string.sms_cannot_open_settings)) }
+    )
+
+    // 只有「清空系统里的」方向才需要检查系统权限与角色
+    val needsSmsRole = clearingSystem && ClearTarget.SMS in vm.clearTargets && !isDefaultSms
+    val needsCallLogPerm = clearingSystem && ClearTarget.CALLS in vm.clearTargets && !canWriteCallLog
 
     Scaffold(
         topBar = {
@@ -102,9 +122,14 @@ fun ClearDataScreen(vm: ContactsViewModel) {
 
             Spacer(Modifier.height(18.dp))
 
+            // 只要本应用还占着默认短信角色就常驻提醒，别让用户设完忘了切回
+            if (isDefaultSms) {
+                SmsRoleActiveNotice(switchBackSmsApp)
+                Spacer(Modifier.height(18.dp))
+            }
+
             // —— 方向选择 ——
-            // 放在内容选择之前：方向决定了哪些内容真的能选，
-            // 先选方向再选内容，用户才不会先勾了才发现被禁用。
+            // 放在内容选择之前：方向决定了每项需要什么前置条件
             Text(
                 stringResource(R.string.clear_data_section_direction),
                 style = MaterialTheme.typography.titleMedium,
@@ -154,8 +179,8 @@ fun ClearDataScreen(vm: ContactsViewModel) {
                 ),
                 checked = ClearTarget.SMS in vm.clearTargets,
                 onToggle = { vm.toggleClearTarget(ClearTarget.SMS, it) },
-                disabledReason = if (clearingSystem) {
-                    stringResource(R.string.clear_data_sms_system_blocked)
+                note = if (clearingSystem) {
+                    stringResource(R.string.clear_data_sms_system_note)
                 } else {
                     null
                 }
@@ -169,12 +194,36 @@ fun ClearDataScreen(vm: ContactsViewModel) {
                 ),
                 checked = ClearTarget.CALLS in vm.clearTargets,
                 onToggle = { vm.toggleClearTarget(ClearTarget.CALLS, it) },
-                disabledReason = if (clearingSystem) {
-                    stringResource(R.string.clear_data_calls_system_blocked)
+                note = if (clearingSystem) {
+                    stringResource(R.string.clear_data_calls_system_note)
                 } else {
                     null
                 }
             )
+
+            // —— 前置条件提示 ——
+            if (needsSmsRole) {
+                Spacer(Modifier.height(12.dp))
+                ActionNotice(
+                    title = stringResource(R.string.clear_data_sms_role_title),
+                    body = stringResource(R.string.clear_data_sms_role_body),
+                    actionText = stringResource(R.string.restore_data_sms_role_action),
+                    onAction = requestDefaultSmsApp
+                )
+            }
+            if (needsCallLogPerm) {
+                Spacer(Modifier.height(12.dp))
+                ActionNotice(
+                    title = stringResource(R.string.clear_data_calls_perm_title),
+                    body = stringResource(R.string.clear_data_calls_perm_body),
+                    actionText = stringResource(R.string.clear_data_calls_perm_action),
+                    onAction = {
+                        permissionLauncher.launch(
+                            arrayOf(android.Manifest.permission.WRITE_CALL_LOG)
+                        )
+                    }
+                )
+            }
 
             Spacer(Modifier.height(20.dp))
 
@@ -240,21 +289,19 @@ private fun ClearTargetRow(
     desc: String,
     checked: Boolean,
     onToggle: (Boolean) -> Unit,
-    /** 不可选时的原因；非空则这一行被禁用 */
-    disabledReason: String? = null
+    /** 可选条件下的前置说明，不影响是否可勾选 */
+    note: String? = null
 ) {
-    val enabled = disabledReason == null
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled) { onToggle(!checked) }
+            .clickable { onToggle(!checked) }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
             checked = checked,
             onCheckedChange = onToggle,
-            enabled = enabled,
             modifier = Modifier.size(24.dp)
         )
         Spacer(Modifier.width(10.dp))
@@ -262,10 +309,10 @@ private fun ClearTargetRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = when {
-                    disabledReason != null -> MaterialTheme.colorScheme.onSurfaceVariant
-                    checked -> MaterialTheme.colorScheme.error
-                    else -> MaterialTheme.colorScheme.onSurface
+                color = if (checked) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurface
                 }
             )
             Text(
@@ -273,12 +320,11 @@ private fun ClearTargetRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            // 不可选的原因直接写在下面，别让用户以为是自己哪里点错了
-            if (disabledReason != null) {
+            if (note != null) {
                 Text(
-                    text = disabledReason,
+                    text = note,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -291,7 +337,8 @@ private fun ClearDirectionRow(
     desc: String,
     selected: Boolean,
     onSelect: () -> Unit
-) {    Row(
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onSelect)
@@ -314,4 +361,3 @@ private fun ClearDirectionRow(
         }
     }
 }
-

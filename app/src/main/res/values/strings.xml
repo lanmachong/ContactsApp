@@ -196,19 +196,19 @@
     <string name="about_what_title">它解决什么问题</string>
     <string name="about_what_body">把手机通讯录、短信、通话记录一起搬进一个加密的本地库：整条记录用 AES-256-GCM 加密后落盘，数据库里没有明文的姓名、号码和短信内容；再配合来电识别悬浮窗，陌生号码也能看出是谁。</string>
     <string name="about_update_title">本次更新</string>
-        <string name="about_update_v1_8_1">v1.8.1</string>
+    <string name="about_update_v1_8_2">v1.8.2</string>
+    <string name="about_update_v1_8_2_desc">还原/清空后醒目提醒手动切回默认短信应用；恢复系统通话记录的删除能力，清空系统里的短信与通话记录重新可选</string>
+    <string name="about_update_v1_8_1">v1.8.1</string>
     <string name="about_update_v1_8_1_desc">补齐系统筛选「默认短信应用」所需的两处声明，列表里能看到本应用了；还原页新增资格自检</string>
-    <string name="about_update_v1_8">v1.8.0</string>
-    <string name="about_update_v1_8_desc">修复短信还原「报告成功却没写进去」的问题；还原数据去掉通话记录，清空系统里的只剩通讯录可选</string>
     <string name="about_features_title">核心功能</string>
     <string name="about_feature_import_title">通讯录备份</string>
     <string name="about_feature_import_desc">一次性把系统通讯录搬进来；清空系统后仍可随时在「还原数据」里导回系统，卸载前记得先还原或导出 CSV</string>
     <string name="about_feature_crypto_title">加密存储</string>
     <string name="about_feature_crypto_desc">密钥由系统 Keystore 生成，永不落盘、不可导出；数据库被拷走也读不出内容</string>
     <string name="about_feature_sms_title">短信备份</string>
-    <string name="about_feature_sms_desc">短信内容整体加密入库，可查看、可导出 CSV；写回系统需要本应用临时充当默认短信应用</string>
+    <string name="about_feature_sms_desc">短信内容整体加密入库，可查看、可导出 CSV；写回或清空系统短信需要先成为默认短信应用，用完请手动切回原来的应用</string>
     <string name="about_feature_call_title">通话记录备份</string>
-    <string name="about_feature_call_desc">通话记录加密留存，号码与时长不落明文，随时能查能导出；受系统限制无法写回手机通话记录</string>
+    <string name="about_feature_call_desc">通话记录加密留存，号码与时长不落明文，随时能查能导出；可以清空系统里的记录，但写不回手机通话记录</string>
     <string name="about_feature_caller_title">来电识别</string>
     <string name="about_feature_caller_desc">来电时弹悬浮窗显示对方姓名，只识别不拦截、不录音、不上传</string>
     <string name="about_feature_local_title">纯本地</string>
@@ -420,7 +420,7 @@
     <string name="clear_data_target_sms_desc">系统 %1$d 条 · 本应用 %2$d 条</string>
     <string name="clear_data_target_calls_desc">系统 %1$d 条 · 本应用 %2$d 条</string>
     <string name="clear_data_direction_system">清空系统里的</string>
-    <string name="clear_data_direction_system_desc">删除手机系统应用中的原始数据，本应用的加密副本保留。系统只放开通讯录给普通应用删除，所以这一项只有通讯录可选</string>
+    <string name="clear_data_direction_system_desc">删除手机系统应用中的原始数据，本应用的加密副本保留。短信需要本应用是默认短信应用，通话记录需要通话记录写入权限，条件没到位时会先提示你去授权</string>
     <string name="clear_data_direction_local">清空本应用里的</string>
     <string name="clear_data_direction_local_desc">只删除本应用保存的加密副本，手机系统里的原始数据不受影响</string>
     <string name="clear_data_confirm_label">输入「%1$s」以确认</string>
@@ -431,10 +431,16 @@
     <string name="clear_data_warning_title">删除前请确认</string>
     <string name="clear_data_warning_body">· 清空不可撤销，请确认已经导出 CSV 备份
 · 通讯录若来自云端账户，删除可能同步到云端
-· 清空系统里的原始数据时只有通讯录可选：短信要默认短信应用身份，通话记录系统根本不放行
+· 清空系统短信会删掉系统里全部短信，包括刚还原回去的
+· 清空系统短信需要默认短信应用身份；清空系统通话记录需要 WRITE_CALL_LOG 权限，个别机型会拒绝，删不掉会如实回报
 · 清空本应用里的加密副本不受系统限制，三项都能清</string>
-    <string name="clear_data_sms_system_blocked">系统不允许：删除短信需要本应用是「默认短信应用」，这里不替你改系统短信</string>
-    <string name="clear_data_calls_system_blocked">系统不允许：通话记录的删除权限只授予系统自带电话应用</string>
+    <string name="clear_data_sms_system_note">需要本应用是「默认短信应用」才能删；设为默认后记得在操作完切回原来的短信应用</string>
+    <string name="clear_data_calls_system_note">需要通话记录写入权限；删除后会回读条数确认，删不掉会如实说明</string>
+    <string name="clear_data_sms_role_title">还需要默认短信应用身份</string>
+    <string name="clear_data_sms_role_body">Android 4.4 起只有「默认短信应用」能删除系统短信。点下面的按钮去系统设置里设置，清空完成后记得再切回你原来的短信应用 —— 这个身份不会自动换回来。</string>
+    <string name="clear_data_calls_perm_title">还需要通话记录写入权限</string>
+    <string name="clear_data_calls_perm_body">删除系统通话记录需要 WRITE_CALL_LOG 权限。这是普通的运行时权限，授予后就能删；个别厂商 ROM 会拒绝，届时结果会如实显示。</string>
+    <string name="clear_data_calls_perm_action">授予删除权限</string>
     <string name="busy_clear_data">正在清空…</string>
     <string name="clear_data_done_title">清空完成</string>
     <string name="clear_data_result_deleted">%1$s：已删除 %2$d 条</string>
@@ -442,13 +448,19 @@
     <string name="clear_data_result_denied">%1$s：系统拒绝了删除请求，未能清空</string>
     <string name="clear_data_hint_contacts">通讯录若来自云端账户，删除可能同步到云端。</string>
     <string name="clear_data_hint_sms">短信要删干净，本应用需要是默认短信应用；双卡机上另一张卡的短信有时也删不掉。彩信不在清理范围内。</string>
-    <string name="clear_data_hint_calls">通话记录的删除权限只授予系统应用，普通 App 无法删除。</string>
+    <string name="clear_data_hint_calls">没拿到 WRITE_CALL_LOG 权限时系统不让删；先授予权限再试。个别 ROM 始终拒绝的话，只能在自带电话 App 里手动清。</string>
     <string name="clear_data_local_kept">本应用内的加密副本没有受到影响。</string>
-    <string name="clear_data_system_kept">本应用内的加密副本保留，仍然可以查和拨号。</string>
+    <string name="clear_data_system_kept">手机系统里的原始数据没有受到影响。</string>
+
+    <!-- ==================== 默认短信应用角色 ==================== -->
+    <string name="sms_role_active_title">本应用当前是默认短信应用</string>
+    <string name="sms_role_active_body">这个身份不会过几分钟自动换回来，系统也不允许应用自己交还，必须你手动切回。期间收到的文字短信会被写回系统短信库（内容不丢），但本应用不会弹新短信通知，彩信也可能收不到。操作完成后请点下面的按钮，把默认短信应用改回原来的应用。</string>
+    <string name="sms_role_switch_back_action">前往切回默认短信应用</string>
+    <string name="sms_role_switch_back_notice">提醒：本应用仍是默认短信应用，不会自动换回。请到「设置 → 默认应用 → 短信」把它改回原来的应用；切回后就无法再写回或清空系统短信，需要时再临时设为默认。</string>
 
     <!-- ==================== 还原数据 ==================== -->
     <string name="restore_data_title">还原数据</string>
-    <string name="restore_data_desc">把本应用加密库里的内容写回手机系统。清空之后反悔了、或者要换手机时用得上。写入前会先比对系统里已有的内容并跳过，不会写出重复的通讯录或短信。通话记录受系统限制写不回去，所以这里没有这一项。</string>
+    <string name="restore_data_desc">把本应用加密库里的内容写回手机系统。清空之后反悔了、或者要换手机时用得上。写入前会先比对系统里已有的内容并跳过，不会写出重复的通讯录或短信。通话记录能删但写不回系统（CallLog Provider 会拒绝新增），所以这里没有这一项。</string>
     <string name="restore_data_section_content">要还原哪些内容</string>
     <string name="restore_data_target_contacts_desc">本应用 %1$d 人 · 系统 %2$d 人</string>
     <string name="restore_data_target_sms_desc">本应用 %1$d 条 · 系统 %2$d 条</string>
@@ -485,6 +497,7 @@
     <string name="restore_data_warning_title">还原前请确认</string>
     <string name="restore_data_warning_body">· 还原会在系统里新增通讯录、短信等内容，本应用里的加密副本不会删除
 · 短信写回系统需要本应用是默认短信应用，否则系统会静默丢弃写入请求
+· 默认短信应用不会自动换回来，还原完成后请手动切回原来的短信应用
 · 短信保留原来的时间，还原后可能排在列表靠后的位置
 · 如果系统里已有相同号码或相同内容的短信，会自动跳过</string>
     <string name="restore_data_done_title">还原完成</string>
