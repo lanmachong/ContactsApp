@@ -71,8 +71,12 @@ fun RestoreDataScreen(vm: ContactsViewModel) {
 
     // 写回系统通讯录需要 WRITE_CONTACTS，没授权就先申请
     val canWriteContacts = remember(tick) { PermissionUtil.canWriteContacts(context) }
-    // 写回系统短信需要本应用是默认短信应用
-    val canWriteSms = remember(tick) { PermissionUtil.canWriteSms(context) }
+    // 写回系统短信的真正门槛：必须是「默认短信应用」。
+    // WRITE_SMS 权限能拿到，但那不够 —— 不是默认短信应用时 insert 会
+    // 静默失败（不报错、返回非 null Uri，短信却根本不在短信应用里）。
+    val canWriteSms = remember(tick) {
+        PermissionUtil.isDefaultSmsApp(context) && PermissionUtil.canWriteSms(context)
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -149,16 +153,6 @@ fun RestoreDataScreen(vm: ContactsViewModel) {
                 ),
                 checked = RestoreTarget.SMS in vm.restoreTargets,
                 onToggle = { vm.toggleRestoreTarget(RestoreTarget.SMS, it) }
-            )
-            RestoreTargetRow(
-                title = stringResource(R.string.clear_data_target_calls),
-                desc = stringResource(
-                    R.string.restore_data_target_calls_desc,
-                    vm.localCallCount,
-                    vm.systemCallCount
-                ),
-                checked = RestoreTarget.CALLS in vm.restoreTargets,
-                onToggle = { vm.toggleRestoreTarget(RestoreTarget.CALLS, it) }
             )
 
             Spacer(Modifier.height(20.dp))

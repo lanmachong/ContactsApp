@@ -55,20 +55,3 @@ fun rememberDefaultSmsAppLauncher(
         }
     }
 }
-
-/**
- * 系统短信的删除权限判断。
- *
- * Android 4.4 起只有「默认短信应用」能删短信。本应用不是默认短信应用时，
- * 系统会直接拒绝删除请求 —— 这时候要给用户一条明确的路，而不是只说「失败了」。
- */
-object SmsDeletePath {
-
-    /**
-     * 当前能不能删系统短信。
-     *
-     * 有 WRITE_SMS 就说明系统已经把「默认短信应用」身份给了本应用。
-     */
-    fun canDelete(context: android.content.Context): Boolean =
-        PermissionUtil.canWriteSms(context)
-}

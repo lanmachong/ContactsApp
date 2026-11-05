@@ -6,12 +6,28 @@
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
 
     <!--
-      短信备份：只申请「读」。
-      WRITE_SMS 是 signature 级权限，普通应用运行时申请不到，
-      但一旦成为默认短信应用，系统会自动授予，所以这里必须声明。
+      短信备份：读 + 写。
+
+      为什么必须声明 WRITE_SMS：Android 4.4 起，只有「默认短信应用」才能
+      往系统短信库里写东西 —— 不是默认应用时 insert 不会报错、也会返回
+      非 null 的 Uri，但短信根本不会出现在短信应用里。所以本应用要申请
+      默认短信应用身份，才能把加密库里的短信真正还原回系统。
+
+      下面四个组件是拿这个身份的必要条件：Android 10+ 的角色请求会检查
+      清单里是否声明了完整的短信组件，缺一个，系统设置里就不会把本应用
+      列进「默认短信应用」的候选，身份也就永远拿不到。
+      · SmsCompatReceiver        接收短信（收到的短信会写回短信库，不丢）
+      · WapPushReceiver          彩信推送（本应用不处理，声明只为满足校验）
+      · ComposeSmsActivity       撰写短信的极简界面
+      · RespondViaMessageService 快速回复转接
     -->
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.WRITE_SMS" />
+    <!--
+      SEND_SMS：极简撰写界面发短信要用（没有它 SmsManager 会抛 SecurityException），
+      同时也是系统校验「默认短信应用」资格时检查的权限之一。
+    -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
 
     <!--
       通话记录：只申请「读」。
@@ -63,6 +79,59 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          以下四个组件是申请「默认短信应用」身份的必要条件。
+          Android 10+ 的角色请求会逐项校验清单，缺任何一个，
+          系统设置里就不会把本应用列为默认短信应用的候选，
+          写回短信这条路就是死的。
+        -->
+
+        <!-- 接收短信：收到的短信会写回系统短信库，避免短信丢失 -->
+        <receiver
+            android:name=".sms.SmsCompatReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_DELIVER" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 彩信推送：本应用不处理，声明仅为满足角色校验 -->
+        <receiver
+            android:name=".sms.WapPushReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_WAP_PUSH">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.WAP_PUSH_DELIVER" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 撰写短信：系统短信应用被本应用接管后，撰写短信要有个落点 -->
+        <activity
+            android:name=".sms.ComposeSmsActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.SENDTO" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sms" />
+                <data android:scheme="smsto" />
+            </intent-filter>
+        </activity>
+
+        <!-- 快速回复：把「用本应用回复」的请求转给撰写界面 -->
+        <service
+            android:name=".sms.RespondViaMessageService"
+            android:exported="true"
+            android:permission="android.permission.SEND_RESPOND_VIA_MESSAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.RESPOND_VIA_MESSAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="sms" />
+            </intent-filter>
+        </service>
 
         <!-- 来电识别：系统级来电筛选服务（需用户授予「来电显示/骚扰拦截」角色） -->
         <service

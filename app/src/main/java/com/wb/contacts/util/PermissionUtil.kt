@@ -30,11 +30,14 @@ object PermissionUtil {
     fun canReadSms(context: Context): Boolean = has(context, Manifest.permission.READ_SMS)
 
     /**
-     * 写 / 删短信。
+     * 写 / 删短信的**权限**层面。
      *
-     * WRITE_SMS 是 signature 级权限，不在公开 SDK 里（编译期没有常量），
-     * 普通应用申请不到 —— 真正的删除通路是「成为默认短信应用」，
-     * 见 [isDefaultSmsApp] / [defaultSmsAppIntent]。
+     * ⚠️ 有这个权限**不等于**能往系统短信库里写东西。
+     * Android 4.4 起，只有「默认短信应用」才能读写 SMS Provider；
+     * 不是默认应用时，`insert` 不报错、也返回非 null 的 Uri，
+     * 但短信根本不会进短信库 —— 典型的静默失败。
+     * 所以判断「能不能写短信」必须用 [isDefaultSmsApp]，
+     * 这里只能作为「角色之外再确认一下权限」的辅助判据。
      */
     fun canWriteSms(context: Context): Boolean = has(context, PERM_WRITE_SMS)
 

@@ -20,7 +20,9 @@ object SystemSms {
         val date: Long,
         val type: Int,
         val read: Boolean,
-        val threadId: Long
+        val threadId: Long,
+        /** 所属 SIM 卡订阅 id，双卡机上写回时必须带上，否则会落到别的分组 */
+        val subId: Long
     )
 
     /**
@@ -39,7 +41,8 @@ object SystemSms {
                 Telephony.Sms.DATE,
                 Telephony.Sms.TYPE,
                 Telephony.Sms.READ,
-                Telephony.Sms.THREAD_ID
+                Telephony.Sms.THREAD_ID,
+                Telephony.Sms.SUBSCRIPTION_ID
             ),
             null, null, "${Telephony.Sms.DATE} DESC"
         )?.use { cursor ->
@@ -50,6 +53,7 @@ object SystemSms {
             val typeIdx = cursor.getColumnIndexOrThrow(Telephony.Sms.TYPE)
             val readIdx = cursor.getColumnIndexOrThrow(Telephony.Sms.READ)
             val threadIdx = cursor.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
+            val subIdx = cursor.getColumnIndex(Telephony.Sms.SUBSCRIPTION_ID)
             while (cursor.moveToNext()) {
                 result.add(
                     SysSms(
@@ -59,7 +63,8 @@ object SystemSms {
                         date = cursor.getLong(dateIdx),
                         type = cursor.getInt(typeIdx),
                         read = cursor.getInt(readIdx) == 1,
-                        threadId = cursor.getLong(threadIdx)
+                        threadId = cursor.getLong(threadIdx),
+                        subId = if (subIdx >= 0 && !cursor.isNull(subIdx)) cursor.getLong(subIdx) else -1L
                     )
                 )
             }
@@ -205,21 +210,27 @@ object SystemSms {
 
     /**
      * 把本应用里的短信写回系统。
-     * 和通讯录一样按「线程 + 正文 + 时间」去重，避免重复导入。
+     *
+     * ⚠️ 调用方必须先确认本应用是「默认短信应用」——
+     * Android 4.4 起，只有默认短信应用才能往 SMS Provider 里写。
+     * 不是默认短信应用时，`insert` **不报错、也返回非 null Uri，
+     * 但短信根本不会出现在短信应用里**。那种情况下不能相信 insert 的返回值，
+     * 必须靠 [isDefaultSmsApp] 提前拦住。
      */
     fun exportToSystem(context: Context, messages: List<SmsMessage>): ExportSummary =
-        exportToSystem(context, messages, existingKeys(context))
+        exportToSystem(context, messages, existingKeys(context), existingThreads(context))
 
     /**
      * 分页写回系统。
      *
-     * [existing] 传进来是为了跨页去重：系统里已有的短信指纹在整轮写入里共用一份，
-     * 否则每页都重新查一遍，既慢又可能把同一条短信写两遍。
+     * @param existing 系统里已有的短信指纹，整轮写入共用一份
+     * @param threads  系统里**现存**的「号码 → 会话 id」映射，见 [existingThreads]
      */
     fun exportToSystem(
         context: Context,
         messages: List<SmsMessage>,
-        existing: MutableSet<String>
+        existing: MutableSet<String>,
+        threads: Map<String, Long>
     ): ExportSummary {
         val resolver = context.contentResolver
         var created = 0
@@ -238,19 +249,60 @@ object SystemSms {
                 put(Telephony.Sms.DATE, msg.date)
                 put(Telephony.Sms.TYPE, msg.type)
                 put(Telephony.Sms.READ, if (msg.read) 1 else 0)
-                put(Telephony.Sms.THREAD_ID, msg.threadId)
+                // 会话 id 只在系统里**确实还有**这个号码的会话时才写。
+                // 早前直接沿用导入时记下的旧 id，用户清空过系统短信后那些会话
+                // 已经不存在了，短信就会挂在一个"幽灵会话"上 —— 会话列表里根本不显示。
+                // 查不到就干脆不写这个字段，让系统按号码自己归组。
+                threads[normalizeAddress(msg.address)]?.let { put(Telephony.Sms.THREAD_ID, it) }
+                // 双卡机：带上所属订阅，否则短信会落到另一张卡的分组里
+                if (msg.subId > 0) put(Telephony.Sms.SUBSCRIPTION_ID, msg.subId)
             }
-            val result = runCatching {
+            val uri = runCatching {
                 resolver.insert(Telephony.Sms.CONTENT_URI, values)
-            }
-            if (result.isSuccess && result.getOrNull() != null) {
-                existing.add(key)
-                created++
-            } else {
-                failed++
+            }.getOrNull()
+
+            when {
+                uri == null -> failed++
+                // insert 返回了 Uri 也不等于真写进去了，回读确认一次
+                !verifyInserted(context, uri, msg) -> failed++
+                else -> {
+                    existing.add(key)
+                    created++
+                }
             }
         }
         return ExportSummary(created, skippedExisting, failed)
+    }
+
+    /**
+     * 回读校验：确认这条短信真的落进了系统短信库。
+     *
+     * Provider 可能接受了请求却没真正落库（历史上就出现过
+     * 「insert 返回非 null、短信应用里却找不到」的情况），
+     * 所以写完必须自己查一遍，对不上就当失败，不能算成成功。
+     */
+    private fun verifyInserted(context: Context, uri: Uri, msg: SmsMessage): Boolean {
+        val id = uri.lastPathSegment?.toLongOrNull() ?: return false
+        return runCatching {
+            context.contentResolver.query(
+                Telephony.Sms.CONTENT_URI,
+                arrayOf(
+                    Telephony.Sms._ID,
+                    Telephony.Sms.ADDRESS,
+                    Telephony.Sms.BODY,
+                    Telephony.Sms.DATE
+                ),
+                "${Telephony.Sms._ID} = ?",
+                arrayOf(id.toString()),
+                null
+            )?.use { c ->
+                if (!c.moveToFirst()) return@use false
+                val addr = c.getString(1).orEmpty().trim()
+                val body = c.getString(2).orEmpty()
+                val date = c.getLong(3)
+                addr == msg.address.trim() && body == msg.body && date == msg.date
+            } ?: false
+        }.getOrDefault(false)
     }
 
     data class ExportSummary(
@@ -283,9 +335,45 @@ object SystemSms {
         return set
     }
 
+    /**
+     * 系统里**现存**的「号码 → 会话 id」映射。
+     *
+     * 只收录系统里当前还存在的短信所挂的会话 —— 已经随清空一起消失的会话
+     * 不会出现在这里，写回时也就不会被误用。
+     */
+    fun existingThreads(context: Context): Map<String, Long> {
+        val map = HashMap<String, Long>()
+        context.contentResolver.query(
+            Telephony.Sms.CONTENT_URI,
+            arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.THREAD_ID),
+            null, null, "${Telephony.Sms.DATE} DESC"
+        )?.use { cursor ->
+            val addrIdx = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+            val threadIdx = cursor.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
+            while (cursor.moveToNext()) {
+                val addr = cursor.getString(addrIdx).orEmpty().trim()
+                val thread = cursor.getLong(threadIdx)
+                if (addr.isEmpty() || thread <= 0L) continue
+                map.putIfAbsent(normalizeAddress(addr), thread)
+            }
+        }
+        return map
+    }
+
     private fun keyOf(address: String, body: String, date: Long): String =
         "$address|$body|$date"
 
-
-
+    /**
+     * 号码归一化：只保留数字，并去掉国际区号前缀。
+     *
+     * 系统里同一个人可能存成 `+8613800138000`、`13800138000`、
+     * `138 0013 8000` 三种样子，归一化后才能对上号。
+     */
+    fun normalizeAddress(address: String): String {
+        val digits = address.filter { it.isDigit() }
+        return when {
+            digits.length > 11 && digits.startsWith("86") -> digits.substring(2)
+            else -> digits
+        }
+    }
 }

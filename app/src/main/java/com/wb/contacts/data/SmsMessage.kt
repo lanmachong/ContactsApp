@@ -19,6 +19,8 @@ data class SmsMessage(
     val read: Boolean = false,
     /** 线程 id，同一号码的多条短信归到一个会话 */
     val threadId: Long = 0L,
+    /** 所属 SIM 卡订阅 id；双卡机写回系统时必须带上，否则会落到别的分组 */
+    val subId: Long = 0L,
     /** 导入时的系统短信 id，用于重复导入时去重 */
     val sourceSmsId: Long = 0L,
     val createdAt: Long = System.currentTimeMillis()
@@ -45,6 +47,7 @@ data class SmsMessage(
         put("type", type)
         put("read", read)
         put("threadId", threadId)
+        put("subId", subId)
         put("sourceSmsId", sourceSmsId)
         put("createdAt", createdAt)
     }.toString()
@@ -62,6 +65,7 @@ data class SmsMessage(
                 type = o.optInt("type", 1),
                 read = o.optBoolean("read"),
                 threadId = o.optLong("threadId"),
+                subId = o.optLong("subId"),
                 sourceSmsId = o.optLong("sourceSmsId"),
                 createdAt = o.optLong("createdAt", System.currentTimeMillis())
             )

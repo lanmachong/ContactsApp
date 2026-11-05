@@ -131,6 +131,27 @@ PYEOF
         issues=1
     fi
 
+    # 5) 真正的 XML 解析 —— 前面几项都是文本匹配，抓不到「孤儿文本」这类问题。
+    #    典型翻车现场：删一个多行字符串时只删掉了开头那一行，
+    #    正文和结尾的 </string> 留在原地，AAPT 就会报
+    #    「元素类型 "resources" 必须由匹配的结束标记 </resources> 终止」。
+    local parse_err
+    parse_err=$(python - "$file" <<'PYEOF2'
+import sys
+import xml.etree.ElementTree as ET
+
+try:
+    ET.parse(sys.argv[1])
+except ET.ParseError as e:
+    print("第 %s 行：%s" % (e.position[0], e.msg))
+PYEOF2
+    )
+    if [ -n "$parse_err" ]; then
+        echo "✗ $label XML 解析失败："
+        echo "$parse_err" | sed 's/^/    /'
+        issues=1
+    fi
+
     if [ "$issues" -eq 0 ]; then
         echo "✓ $label XML 结构正常"
         return 0

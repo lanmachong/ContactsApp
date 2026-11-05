@@ -65,8 +65,14 @@ enum class ClearTarget { CONTACTS, SMS, CALLS }
 /** 清空的方向：系统里的原始数据，还是本应用里的加密副本 */
 enum class ClearDirection { SYSTEM, LOCAL }
 
-/** 要还原回系统的内容 */
-enum class RestoreTarget { CONTACTS, SMS, CALLS }
+/**
+ * 要还原回系统的内容。
+ *
+ * 只有通讯录和短信 —— 通话记录写不回去：WRITE_CALL_LOG 是
+ * signature|privileged 权限，普通应用永远拿不到，系统只允许自带电话应用写入。
+ * 与其放一个必然失败的选项让人点，不如不放。
+ */
+enum class RestoreTarget { CONTACTS, SMS }
 
 /** 导入结果汇总，直接用于结果弹窗文案 */
 data class ImportOutcome(
@@ -667,12 +673,23 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleClearTarget(target: ClearTarget, on: Boolean) {
+        // 「清空系统里的」方向下只有通讯录能选，其余两项一律拒绝
+        if (on && clearDirection == ClearDirection.SYSTEM && target != ClearTarget.CONTACTS) return
         clearTargets = if (on) clearTargets + target else clearTargets - target
     }
 
-    /** 选择清空方向（方法名不叫 setClearDirection，避免和属性的 setter 同名冲突） */
+    /**
+     * 选择清空方向（方法名不叫 setClearDirection，避免和属性的 setter 同名冲突）。
+     *
+     * 切到「清空系统里的」时，把短信和通话记录从勾选里摘掉 ——
+     * 这两项系统不放开给普通应用（短信要默认短信应用身份，通话记录根本不放行），
+     * 界面已经把它们禁用了，这里再兜一层，防止状态残留。
+     */
     fun selectClearDirection(direction: ClearDirection) {
         clearDirection = direction
+        if (direction == ClearDirection.SYSTEM) {
+            clearTargets = clearTargets - ClearTarget.SMS - ClearTarget.CALLS
+        }
     }
 
     fun onClearConfirmChange(value: String) {
@@ -832,6 +849,9 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      * · 通讯录 —— 需要 WRITE_CONTACTS
      * · 短信 —— Android 4.4 起必须是默认短信应用
      * · 通话记录 —— WRITE_CALL_LOG 是 signature 级权限，普通 App 拿不到
+     *
+     * 短信和通话记录在界面上是禁用状态（只有通讯录能选），
+     * 这里再兜一层：万一状态残留，也不去动系统的短信和通话记录。
      */
     private suspend fun clearSystem(target: ClearTarget): ClearResult = when (target) {
         ClearTarget.CONTACTS -> {
@@ -861,6 +881,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         ClearTarget.SMS -> {
+            // 界面已禁用这一项；这里再兜一层，不去动用户的系统短信
             if (!PermissionUtil.canWriteSms(context)) {
                 ClearResult(target, 0, 0, true)
             } else {
@@ -884,6 +905,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         ClearTarget.CALLS -> {
+            // 界面已禁用这一项；系统也不允许普通应用删通话记录
             if (!PermissionUtil.canWriteCallLog(context)) {
                 ClearResult(target, 0, 0, true)
             } else {
@@ -973,6 +995,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         val target: RestoreTarget,
         val written: Int,
         val skipped: Int,
+        val failed: Int,
         val denied: Boolean
     ) {
         fun describe(context: Context): String {
@@ -980,12 +1003,20 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 when (target) {
                     RestoreTarget.CONTACTS -> R.string.clear_data_target_contacts
                     RestoreTarget.SMS -> R.string.clear_data_target_sms
-                    RestoreTarget.CALLS -> R.string.clear_data_target_calls
                 }
             )
             return buildString {
                 if (denied) {
                     append(context.getString(R.string.restore_data_result_denied, label))
+                    append("\n")
+                    append(
+                        context.getString(
+                            when (target) {
+                                RestoreTarget.CONTACTS -> R.string.restore_data_hint_contacts
+                                RestoreTarget.SMS -> R.string.restore_data_hint_sms
+                            }
+                        )
+                    )
                 } else {
                     append(
                         context.getString(
@@ -1002,18 +1033,16 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                             )
                         )
                     }
-                }
-                if (denied) {
-                    append("\n")
-                    append(
-                        context.getString(
-                            when (target) {
-                                RestoreTarget.CONTACTS -> R.string.restore_data_hint_contacts
-                                RestoreTarget.SMS -> R.string.restore_data_hint_sms
-                                RestoreTarget.CALLS -> R.string.restore_data_hint_calls
-                            }
+                    // 失败必须说出来 —— 上一版把 failed 丢掉了，
+                    // 于是「一条都没写进去」也会被报成「已写回 0 条」，看着像成功
+                    if (failed > 0) {
+                        append(
+                            context.getString(
+                                R.string.restore_data_result_failed,
+                                failed
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -1023,61 +1052,51 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun restoreOne(target: RestoreTarget): RestoreResult = when (target) {
         RestoreTarget.CONTACTS -> {
             if (!PermissionUtil.canWriteContacts(context)) {
-                RestoreResult(target, 0, 0, true)
+                RestoreResult(target, 0, 0, 0, true)
             } else {
                 val list = repo.getAll()
                 val summary = runCatching {
                     SystemContacts.exportToSystem(context, list)
                 }.getOrNull()
                 if (summary == null) {
-                    RestoreResult(target, 0, 0, true)
+                    RestoreResult(target, 0, 0, 0, true)
                 } else {
                     RestoreResult(
                         target,
                         summary.created,
                         summary.skippedExisting + summary.skippedNoPhone,
+                        summary.failed,
                         false
                     )
                 }
             }
         }
         RestoreTarget.SMS -> {
-            if (!PermissionUtil.canWriteSms(context)) {
-                RestoreResult(target, 0, 0, true)
+            // 门槛不是 WRITE_SMS 权限，而是「是不是默认短信应用」。
+            // Android 4.4 起，不是默认应用时 insert **不报错、也返回非 null 的 Uri**，
+            // 但短信根本不会出现在短信应用里 —— 那种情况下绝不能报「已写回」。
+            if (!PermissionUtil.isDefaultSmsApp(context) || !PermissionUtil.canWriteSms(context)) {
+                RestoreResult(target, 0, 0, 0, true)
             } else {
                 // 遍历全表：界面上只渲染了第一页，不能只把那 200 条写回去。
-                // existing 跨页共用一份，否则同一条短信可能被写两遍。
+                // existing 与 threads 跨页共用一份，否则同一条短信可能被写两遍。
                 var written = 0
                 var skipped = 0
+                var failed = 0
                 val ok = runCatching {
                     val existing = SystemSms.existingKeys(context)
+                    // 系统里现存的会话映射：清空过之后旧 thread_id 已经失效，
+                    // 照抄会把短信挂到不存在的会话上，用户在短信应用里根本找不到
+                    val threads = SystemSms.existingThreads(context)
                     archiveRepo.smsTable.forEachPage(EXPORT_PAGE_SIZE) { page ->
-                        val s = SystemSms.exportToSystem(context, page, existing)
+                        val s = SystemSms.exportToSystem(context, page, existing, threads)
                         written += s.created
                         skipped += s.skippedExisting
+                        failed += s.failed
                     }
                 }.isSuccess
-                if (!ok) RestoreResult(target, 0, 0, true)
-                else RestoreResult(target, written, skipped, false)
-            }
-        }
-        RestoreTarget.CALLS -> {
-            // 系统只允许自带电话应用写入通话记录，普通应用拿不到 WRITE_CALL_LOG
-            if (!PermissionUtil.canWriteCallLog(context)) {
-                RestoreResult(target, 0, 0, true)
-            } else {
-                var written = 0
-                var skipped = 0
-                val ok = runCatching {
-                    val existing = SystemCallLog.existingKeys(context)
-                    archiveRepo.callTable.forEachPage(EXPORT_PAGE_SIZE) { page ->
-                        val s = SystemCallLog.exportToSystem(context, page, existing)
-                        written += s.created
-                        skipped += s.skippedExisting
-                    }
-                }.isSuccess
-                if (!ok) RestoreResult(target, 0, 0, true)
-                else RestoreResult(target, written, skipped, false)
+                if (!ok) RestoreResult(target, 0, 0, 0, true)
+                else RestoreResult(target, written, skipped, failed, false)
             }
         }
     }
@@ -1182,6 +1201,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                                 type = s.type,
                                 read = s.read,
                                 threadId = s.threadId,
+                                subId = s.subId,
                                 sourceSmsId = s.id,
                                 createdAt = now
                             )

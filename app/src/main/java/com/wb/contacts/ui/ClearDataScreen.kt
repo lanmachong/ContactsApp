@@ -61,23 +61,11 @@ import com.wb.contacts.R
 @Composable
 fun ClearDataScreen(vm: ContactsViewModel) {
     val keyword = stringResource(R.string.clear_data_confirm_keyword)
-    val context = LocalContext.current
-    var tick by remember { mutableStateOf(0) }
 
-    // 从系统设置返回后要重新判断「是不是默认短信应用」
-    OnResume { tick++ }
-
-    // 短信能不能删，取决于本应用是不是默认短信应用
-    val canDeleteSms = remember(tick) { SmsDeletePath.canDelete(context) }
-    val requestDefaultSmsApp = rememberDefaultSmsAppLauncher(
-        onReturn = { tick++ },
-        onFail = { vm.notify(context.getString(R.string.sms_cannot_open_settings)) }
-    )
-
-    // 只有在「清空系统里的短信」这一种组合下才需要提示
-    val smsWillBeBlocked = ClearTarget.SMS in vm.clearTargets &&
-        vm.clearDirection == ClearDirection.SYSTEM &&
-        !canDeleteSms
+    // 清系统里的原始数据时，只有通讯录是系统真正允许普通应用删的：
+    // 短信要默认短信应用身份，通话记录系统根本不放行。
+    // 与其让用户勾了再失败，不如在方向选定的当下就禁用掉，并把原因写清楚。
+    val clearingSystem = vm.clearDirection == ClearDirection.SYSTEM
 
     Scaffold(
         topBar = {
@@ -114,6 +102,31 @@ fun ClearDataScreen(vm: ContactsViewModel) {
 
             Spacer(Modifier.height(18.dp))
 
+            // —— 方向选择 ——
+            // 放在内容选择之前：方向决定了哪些内容真的能选，
+            // 先选方向再选内容，用户才不会先勾了才发现被禁用。
+            Text(
+                stringResource(R.string.clear_data_section_direction),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(8.dp))
+
+            ClearDirectionRow(
+                title = stringResource(R.string.clear_data_direction_system),
+                desc = stringResource(R.string.clear_data_direction_system_desc),
+                selected = vm.clearDirection == ClearDirection.SYSTEM,
+                onSelect = { vm.selectClearDirection(ClearDirection.SYSTEM) }
+            )
+            ClearDirectionRow(
+                title = stringResource(R.string.clear_data_direction_local),
+                desc = stringResource(R.string.clear_data_direction_local_desc),
+                selected = vm.clearDirection == ClearDirection.LOCAL,
+                onSelect = { vm.selectClearDirection(ClearDirection.LOCAL) }
+            )
+
+            Spacer(Modifier.height(20.dp))
+
             // —— 内容选择 ——
             Text(
                 stringResource(R.string.clear_data_section_content),
@@ -140,7 +153,12 @@ fun ClearDataScreen(vm: ContactsViewModel) {
                     vm.localSmsCount
                 ),
                 checked = ClearTarget.SMS in vm.clearTargets,
-                onToggle = { vm.toggleClearTarget(ClearTarget.SMS, it) }
+                onToggle = { vm.toggleClearTarget(ClearTarget.SMS, it) },
+                disabledReason = if (clearingSystem) {
+                    stringResource(R.string.clear_data_sms_system_blocked)
+                } else {
+                    null
+                }
             )
             ClearTargetRow(
                 title = stringResource(R.string.clear_data_target_calls),
@@ -150,39 +168,15 @@ fun ClearDataScreen(vm: ContactsViewModel) {
                     vm.localCallCount
                 ),
                 checked = ClearTarget.CALLS in vm.clearTargets,
-                onToggle = { vm.toggleClearTarget(ClearTarget.CALLS, it) }
+                onToggle = { vm.toggleClearTarget(ClearTarget.CALLS, it) },
+                disabledReason = if (clearingSystem) {
+                    stringResource(R.string.clear_data_calls_system_blocked)
+                } else {
+                    null
+                }
             )
 
             Spacer(Modifier.height(20.dp))
-
-            // —— 方向选择 ——
-            Text(
-                stringResource(R.string.clear_data_section_direction),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(8.dp))
-
-            ClearDirectionRow(
-                title = stringResource(R.string.clear_data_direction_system),
-                desc = stringResource(R.string.clear_data_direction_system_desc),
-                selected = vm.clearDirection == ClearDirection.SYSTEM,
-                onSelect = { vm.selectClearDirection(ClearDirection.SYSTEM) }
-            )
-            ClearDirectionRow(
-                title = stringResource(R.string.clear_data_direction_local),
-                desc = stringResource(R.string.clear_data_direction_local_desc),
-                selected = vm.clearDirection == ClearDirection.LOCAL,
-                onSelect = { vm.selectClearDirection(ClearDirection.LOCAL) }
-            )
-
-            Spacer(Modifier.height(20.dp))
-
-            // —— 短信删不掉的预检：给路径说明，优先提供跳转 ——
-            if (smsWillBeBlocked) {
-                SmsBlockNotice(onJump = requestDefaultSmsApp)
-                Spacer(Modifier.height(20.dp))
-            }
 
             // —— 确认输入 ——
             Text(
@@ -245,18 +239,22 @@ private fun ClearTargetRow(
     title: String,
     desc: String,
     checked: Boolean,
-    onToggle: (Boolean) -> Unit
+    onToggle: (Boolean) -> Unit,
+    /** 不可选时的原因；非空则这一行被禁用 */
+    disabledReason: String? = null
 ) {
+    val enabled = disabledReason == null
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggle(!checked) }
+            .clickable(enabled = enabled) { onToggle(!checked) }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
             checked = checked,
             onCheckedChange = onToggle,
+            enabled = enabled,
             modifier = Modifier.size(24.dp)
         )
         Spacer(Modifier.width(10.dp))
@@ -264,10 +262,10 @@ private fun ClearTargetRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (checked) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurface
+                color = when {
+                    disabledReason != null -> MaterialTheme.colorScheme.onSurfaceVariant
+                    checked -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurface
                 }
             )
             Text(
@@ -275,6 +273,14 @@ private fun ClearTargetRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            // 不可选的原因直接写在下面，别让用户以为是自己哪里点错了
+            if (disabledReason != null) {
+                Text(
+                    text = disabledReason,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }
@@ -285,8 +291,7 @@ private fun ClearDirectionRow(
     desc: String,
     selected: Boolean,
     onSelect: () -> Unit
-) {
-    Row(
+) {    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onSelect)
@@ -306,49 +311,6 @@ private fun ClearDirectionRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-/**
- * 「系统短信删不掉」的预检提示。
- *
- * 勾了短信 + 选清空系统，但本应用不是默认短信应用时出现。
- * 给两样东西：一条能走通的删除路径，和一个直接跳到系统设置的按钮（跳转优先）。
- */
-@Composable
-private fun SmsBlockNotice(onJump: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = Color(0xFFB45309),
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(R.string.clear_data_sms_blocked_title),
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                stringResource(R.string.clear_data_sms_blocked_body),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = onJump,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(stringResource(R.string.clear_data_sms_blocked_action)) }
         }
     }
 }
