@@ -28,6 +28,24 @@
 - 构建时通过 `resourceConfigurations += listOf("zh", "en")` 只保留这两种语言，
   顺带剔掉 AndroidX 依赖自带的几十种翻译（打包语种从 74 个降到 2 个）
 
+### 为什么中文要放两份目录
+
+`res/values/` 是所有语言的兜底，`res/values-zh/` 是中文的 locale 限定副本，**两份内容必须一致**。
+
+这不是冗余，是 Android 资源解析规则逼出来的：7.0+ 的系统会沿**用户的语言列表**逐个尝试，
+而中文手机的语言列表通常是 `[zh-CN, en-US]`。只有 `values/` + `values-en/` 时，
+查找顺序是 `zh-CN` → `zh`（无）→ 继续试 `en-US` → `en`（**有**），
+于是中文系统反而命中英文，界面全变英文 —— 压根轮不到默认目录。
+
+加上 `values-zh/` 后，`zh` 这一步就直接命中简体中文，问题消失。
+详见 Android 官方文档 [Language and locale resolution overview](https://developer.android.com/guide/topics/resources/multilingual-support)。
+
+改动文案后跑一次校验，防止三份资源键集合失同步（某个键漏了会在某个语种下静默串到另一语种）：
+
+```bash
+./verify-locales.sh
+```
+
 **写进数据库的文案不能跟着语言变**，否则用户切换语言后老数据会对不上：
 
 | 数据 | 库里存什么 | 怎么显示 |
@@ -220,7 +238,8 @@ app/src/main/java/com/wb/contacts/
 └── util/                       # 拼音、号码归一化、权限、开关、标签本地化
 
 app/src/main/res/
-├── values/strings.xml          # 默认（简体中文）
+├── values/strings.xml          # 默认（简体中文，中文文案的唯一来源）
+├── values-zh/strings.xml       # 中文（locale 限定副本，内容需与 values/ 一致）
 └── values-en/strings.xml       # 英文
 ```
 
