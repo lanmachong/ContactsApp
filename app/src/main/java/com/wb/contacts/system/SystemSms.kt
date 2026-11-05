@@ -207,9 +207,21 @@ object SystemSms {
      * 把本应用里的短信写回系统。
      * 和通讯录一样按「线程 + 正文 + 时间」去重，避免重复导入。
      */
-    fun exportToSystem(context: Context, messages: List<SmsMessage>): ExportSummary {
+    fun exportToSystem(context: Context, messages: List<SmsMessage>): ExportSummary =
+        exportToSystem(context, messages, existingKeys(context))
+
+    /**
+     * 分页写回系统。
+     *
+     * [existing] 传进来是为了跨页去重：系统里已有的短信指纹在整轮写入里共用一份，
+     * 否则每页都重新查一遍，既慢又可能把同一条短信写两遍。
+     */
+    fun exportToSystem(
+        context: Context,
+        messages: List<SmsMessage>,
+        existing: MutableSet<String>
+    ): ExportSummary {
         val resolver = context.contentResolver
-        val existing = existingKeys(context)
         var created = 0
         var skippedExisting = 0
         var failed = 0
@@ -248,7 +260,7 @@ object SystemSms {
     )
 
     /** 系统里已有的短信指纹：地址|正文|时间 */
-    private fun existingKeys(context: Context): MutableSet<String> {
+    fun existingKeys(context: Context): MutableSet<String> {
         val set = HashSet<String>()
         context.contentResolver.query(
             Telephony.Sms.CONTENT_URI,

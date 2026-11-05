@@ -41,6 +41,9 @@ sealed interface Screen {
     /** 清空数据（短信 / 通话记录 / 通讯录 × 系统 / 本应用） */
     data object ClearData : Screen
 
+    /** 还原数据（把本应用加密库里的内容写回手机系统） */
+    data object RestoreData : Screen
+
     /** 来电识别悬浮窗设置 */
     data object CallSettings : Screen
 
@@ -61,6 +64,9 @@ enum class ClearTarget { CONTACTS, SMS, CALLS }
 
 /** 清空的方向：系统里的原始数据，还是本应用里的加密副本 */
 enum class ClearDirection { SYSTEM, LOCAL }
+
+/** 要还原回系统的内容 */
+enum class RestoreTarget { CONTACTS, SMS, CALLS }
 
 /** 导入结果汇总，直接用于结果弹窗文案 */
 data class ImportOutcome(
@@ -139,6 +145,15 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 用户输入的确认词 */
     var clearConfirmInput by mutableStateOf("")
+        private set
+
+    // ——— 还原数据 ———
+    /** 勾选要还原回系统的内容，默认一个都不勾 */
+    var restoreTargets by mutableStateOf<Set<RestoreTarget>>(emptySet())
+        private set
+
+    /** 用户输入的还原确认词 */
+    var restoreConfirmInput by mutableStateOf("")
         private set
 
     /** 首次加载是否已完成，避免「查不到联系人」被误判为已删除 */
@@ -220,6 +235,14 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         clearTargets = emptySet()
         clearDirection = ClearDirection.LOCAL
         clearConfirmInput = ""
+        refreshClearCounts()
+    }
+
+    /** 打开「还原数据」页，进入时重置上一次的勾选和确认词 */
+    fun openRestoreData() {
+        screen = Screen.RestoreData
+        restoreTargets = emptySet()
+        restoreConfirmInput = ""
         refreshClearCounts()
     }
 
@@ -428,58 +451,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         Triple(tagged, untagged, dupNumbers.size)
     }
 
-    // ————————————————— 导出到系统通讯录 —————————————————
-
-    /**
-     * 把本应用里的联系人写回系统通讯录。
-     * 用于「反悔卸载」或「想把数据还原回系统」的场景，按号码去重，已有号码跳过。
-     */
-    fun exportToSystem() {
-        if (!PermissionUtil.canWriteContacts(context)) {
-            toast = context.getString(R.string.err_write_contacts)
-            return
-        }
-        val list = _contacts.value
-        if (list.isEmpty()) {
-            toast = context.getString(R.string.err_no_contacts)
-            return
-        }
-        if (busy) return
-        busy = true
-        busyText = context.getString(R.string.busy_export_system)
-        viewModelScope.launch {
-            val summary = withContext(Dispatchers.IO) {
-                runCatching { SystemContacts.exportToSystem(context, list) }
-            }
-            busy = false
-            busyText = ""
-            scanSystemContacts()
-            summary.onSuccess { s ->
-                resultDialog = ResultDialog(
-                    context.getString(R.string.export_done_title),
-                    buildString {
-                        appendLine(context.resources.getQuantityString(R.plurals.export_created, s.created, s.created))
-                        if (s.skippedExisting > 0) {
-                            appendLine(context.resources.getQuantityString(R.plurals.export_skipped_existing, s.skippedExisting, s.skippedExisting))
-                        }
-                        if (s.skippedNoPhone > 0) {
-                            appendLine(context.resources.getQuantityString(R.plurals.export_skipped_nophone, s.skippedNoPhone, s.skippedNoPhone))
-                        }
-                        if (s.failed > 0) {
-                            appendLine(context.resources.getQuantityString(R.plurals.export_failed_count, s.failed, s.failed))
-                        }
-                        appendLine()
-                        append(context.getString(R.string.export_copy_unchanged))
-                    }
-                )
-            }.onFailure {
-                resultDialog = ResultDialog(
-                    context.getString(R.string.export_failed_title),
-                    it.message ?: context.getString(R.string.err_write_contacts_sys)
-                )
-            }
-        }
-    }
 
     fun scanSystemContacts() {
         if (!PermissionUtil.canReadContacts(context)) {
@@ -928,6 +899,189 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ————————————————— 还原数据 —————————————————
+
+    fun toggleRestoreTarget(target: RestoreTarget, on: Boolean) {
+        restoreTargets = if (on) restoreTargets + target else restoreTargets - target
+    }
+
+    fun onRestoreConfirmChange(value: String) {
+        restoreConfirmInput = value
+    }
+
+    /** 确认词是否输入正确（忽略大小写与首尾空格） */
+    fun restoreConfirmMatched(keyword: String): Boolean =
+        restoreConfirmInput.trim().equals(keyword.trim(), ignoreCase = true)
+
+    /** 可以执行的条件：勾了至少一项 + 确认词正确 */
+    fun restoreReady(keyword: String): Boolean =
+        restoreTargets.isNotEmpty() && restoreConfirmMatched(keyword)
+
+    /**
+     * 执行还原：把本应用加密库里的内容写回手机系统。
+     *
+     * 逐项独立处理，一项失败不影响其他项 —— 比如短信需要本应用是默认短信应用，
+     * 通讯录和通话记录照样能还原。最后把每项的结果汇总成一张弹窗，如实回报写了多少。
+     *
+     * 写入前先检查系统里已有的同名内容并跳过，避免把通讯录写成两份、短信写成两遍。
+     */
+    fun executeRestore() {
+        val keyword = context.getString(R.string.restore_data_confirm_keyword)
+        if (!restoreReady(keyword)) {
+            toast = context.getString(
+                if (restoreTargets.isEmpty()) {
+                    R.string.restore_data_need_select
+                } else {
+                    R.string.restore_data_confirm_mismatch
+                }
+            )
+            return
+        }
+        if (busy) return
+
+        val targets = restoreTargets.toList()
+        busy = true
+        busyText = context.getString(R.string.busy_restore_data)
+        viewModelScope.launch {
+            val results = withContext(Dispatchers.IO) {
+                targets.map { target -> restoreOne(target) }
+            }
+            busy = false
+            busyText = ""
+            // 系统里的条数变了，重新拉一遍
+            refresh()
+            refreshClearCounts()
+            loadSms()
+            loadCallLog()
+            resultDialog = ResultDialog(
+                context.getString(R.string.restore_data_done_title),
+                buildString {
+                    results.forEach { r ->
+                        appendLine(r.describe(context))
+                    }
+                    appendLine()
+                    append(context.getString(R.string.restore_data_local_kept))
+                }
+            )
+            restoreTargets = emptySet()
+            restoreConfirmInput = ""
+        }
+    }
+
+    /** 单项还原的结果 */
+    private data class RestoreResult(
+        val target: RestoreTarget,
+        val written: Int,
+        val skipped: Int,
+        val denied: Boolean
+    ) {
+        fun describe(context: Context): String {
+            val label = context.getString(
+                when (target) {
+                    RestoreTarget.CONTACTS -> R.string.clear_data_target_contacts
+                    RestoreTarget.SMS -> R.string.clear_data_target_sms
+                    RestoreTarget.CALLS -> R.string.clear_data_target_calls
+                }
+            )
+            return buildString {
+                if (denied) {
+                    append(context.getString(R.string.restore_data_result_denied, label))
+                } else {
+                    append(
+                        context.getString(
+                            R.string.restore_data_result_written,
+                            label,
+                            written
+                        )
+                    )
+                    if (skipped > 0) {
+                        append(
+                            context.getString(
+                                R.string.restore_data_result_skipped,
+                                skipped
+                            )
+                        )
+                    }
+                }
+                if (denied) {
+                    append("\n")
+                    append(
+                        context.getString(
+                            when (target) {
+                                RestoreTarget.CONTACTS -> R.string.restore_data_hint_contacts
+                                RestoreTarget.SMS -> R.string.restore_data_hint_sms
+                                RestoreTarget.CALLS -> R.string.restore_data_hint_calls
+                            }
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    /** 还原一项 */
+    private suspend fun restoreOne(target: RestoreTarget): RestoreResult = when (target) {
+        RestoreTarget.CONTACTS -> {
+            if (!PermissionUtil.canWriteContacts(context)) {
+                RestoreResult(target, 0, 0, true)
+            } else {
+                val list = repo.getAll()
+                val summary = runCatching {
+                    SystemContacts.exportToSystem(context, list)
+                }.getOrNull()
+                if (summary == null) {
+                    RestoreResult(target, 0, 0, true)
+                } else {
+                    RestoreResult(
+                        target,
+                        summary.created,
+                        summary.skippedExisting + summary.skippedNoPhone,
+                        false
+                    )
+                }
+            }
+        }
+        RestoreTarget.SMS -> {
+            if (!PermissionUtil.canWriteSms(context)) {
+                RestoreResult(target, 0, 0, true)
+            } else {
+                // 遍历全表：界面上只渲染了第一页，不能只把那 200 条写回去。
+                // existing 跨页共用一份，否则同一条短信可能被写两遍。
+                var written = 0
+                var skipped = 0
+                val ok = runCatching {
+                    val existing = SystemSms.existingKeys(context)
+                    archiveRepo.smsTable.forEachPage(EXPORT_PAGE_SIZE) { page ->
+                        val s = SystemSms.exportToSystem(context, page, existing)
+                        written += s.created
+                        skipped += s.skippedExisting
+                    }
+                }.isSuccess
+                if (!ok) RestoreResult(target, 0, 0, true)
+                else RestoreResult(target, written, skipped, false)
+            }
+        }
+        RestoreTarget.CALLS -> {
+            // 系统只允许自带电话应用写入通话记录，普通应用拿不到 WRITE_CALL_LOG
+            if (!PermissionUtil.canWriteCallLog(context)) {
+                RestoreResult(target, 0, 0, true)
+            } else {
+                var written = 0
+                var skipped = 0
+                val ok = runCatching {
+                    val existing = SystemCallLog.existingKeys(context)
+                    archiveRepo.callTable.forEachPage(EXPORT_PAGE_SIZE) { page ->
+                        val s = SystemCallLog.exportToSystem(context, page, existing)
+                        written += s.created
+                        skipped += s.skippedExisting
+                    }
+                }.isSuccess
+                if (!ok) RestoreResult(target, 0, 0, true)
+                else RestoreResult(target, written, skipped, false)
+            }
+        }
+    }
+
     /** 导出 CSV 备份（明文，仅用于自备份，导出后请自行保管） */
     fun exportCsv(uri: Uri) {
         val all = _contacts.value
@@ -1062,53 +1216,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 把本应用里的短信写回系统 */
-    fun exportSmsToSystem() {
-        if (!PermissionUtil.canWriteSms(context)) {
-            toast = context.getString(R.string.err_write_sms)
-            return
-        }
-        if (localSmsCount <= 0) {
-            toast = context.getString(R.string.err_no_sms)
-            return
-        }
-        if (busy) return
-        busy = true
-        busyText = context.getString(R.string.busy_export_sms)
-        viewModelScope.launch {
-            val summary = withContext(Dispatchers.IO) {
-                runCatching {
-                    // 导出全表：界面上只渲染了第一页，不能只把那 200 条写回去
-                    val all = ArrayList<SmsMessage>()
-                    archiveRepo.smsTable.forEachPage(EXPORT_PAGE_SIZE) { all += it }
-                    SystemSms.exportToSystem(context, all)
-                }
-            }
-            busy = false
-            busyText = ""
-            summary.onSuccess { s ->
-                resultDialog = ResultDialog(
-                    context.getString(R.string.sms_export_done_title),
-                    buildString {
-                        appendLine(context.resources.getQuantityString(R.plurals.sms_export_created, s.created, s.created))
-                        if (s.skippedExisting > 0) {
-                            appendLine(context.resources.getQuantityString(R.plurals.sms_export_skipped, s.skippedExisting, s.skippedExisting))
-                        }
-                        if (s.failed > 0) {
-                            appendLine(context.resources.getQuantityString(R.plurals.sms_export_failed_count, s.failed, s.failed))
-                        }
-                        appendLine()
-                        append(context.getString(R.string.sms_export_copy_unchanged))
-                    }
-                )
-            }.onFailure {
-                resultDialog = ResultDialog(
-                    context.getString(R.string.export_failed_title),
-                    it.message ?: context.getString(R.string.err_write_system_sms)
-                )
-            }
-        }
-    }
 
     fun exportSmsCsv(uri: Uri) {
         if (localSmsCount <= 0) {

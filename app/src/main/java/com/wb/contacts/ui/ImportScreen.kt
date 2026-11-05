@@ -83,7 +83,6 @@ fun ImportScreen(vm: ContactsViewModel) {
     }
 
     val canRead = remember(tick) { PermissionUtil.canReadContacts(context) }
-    val canWrite = remember(tick) { PermissionUtil.canWriteContacts(context) }
     val versionName = remember {
         runCatching {
             context.applicationContext.packageManager
@@ -221,23 +220,10 @@ fun ImportScreen(vm: ContactsViewModel) {
             )
             Spacer(Modifier.height(8.dp))
 
-            ActionRow(
-                title = if (canWrite) {
-                    stringResource(R.string.import_action_export_system)
-                } else {
-                    stringResource(R.string.import_grant_write)
-                },
-                desc = stringResource(R.string.import_action_export_system_desc),
-                enabled = !vm.busy && contacts.isNotEmpty(),
-                onClick = {
-                    if (!canWrite) {
-                        permissionLauncher.launch(
-                            arrayOf(android.Manifest.permission.WRITE_CONTACTS)
-                        )
-                    } else {
-                        vm.exportToSystem()
-                    }
-                }
+            Text(
+                stringResource(R.string.import_restore_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(16.dp))

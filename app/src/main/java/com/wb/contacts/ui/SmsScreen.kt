@@ -87,46 +87,6 @@ fun SmsScreen(vm: ContactsViewModel) {
     }
 
     val canRead = remember(tick) { PermissionUtil.canReadSms(context) }
-    // 有写权限 == 已经是默认短信应用（系统会在授予角色时自动下发 WRITE_SMS）
-    val canWrite = remember(tick) { PermissionUtil.canWriteSms(context) }
-
-    val defaultSmsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        tick++
-        vm.loadSms()
-        // 回到应用后复查角色状态：没拿到默认短信应用身份，说明用户跳过了
-        if (!PermissionUtil.isDefaultSmsApp(context)) {
-            vm.notify(context.getString(R.string.sms_not_default_app))
-        }
-    }
-
-    /**
-     * 跳到系统界面把本应用设为默认短信应用。
-     *
-     * 这里的坑：Android 10+ 的角色请求要求应用在清单里声明完整的短信组件
-     * （短信接收器、WAP Push 接收器、撰写 activity、回复 service），
-     * 本应用是通讯录备份工具，没有这些组件，角色请求对话框可能直接不出现。
-     * 所以这里做了三级兜底：角色请求 → 系统默认应用页 → 应用详情页，
-     * 保证任何机型都能把用户带到能改设置的地方。
-     */
-    fun requestDefaultSmsApp() {
-        val roleIntent = PermissionUtil.defaultSmsAppIntent(context)
-        val fallback = PermissionUtil.defaultAppsSettingsIntent(context)
-
-        val target = when {
-            roleIntent != null && PermissionUtil.canResolve(context, roleIntent) -> roleIntent
-            fallback != null -> fallback
-            else -> PermissionUtil.appDetailsIntent(context)
-        }
-
-        runCatching { defaultSmsLauncher.launch(target) }
-            .onFailure {
-                // 连兜底都启动不了，就直接把应用详情页给出去
-                runCatching { defaultSmsLauncher.launch(PermissionUtil.appDetailsIntent(context)) }
-                    .onFailure { vm.notify(context.getString(R.string.sms_cannot_open_settings)) }
-            }
-    }
 
     Scaffold(
         topBar = {
@@ -249,21 +209,10 @@ fun SmsScreen(vm: ContactsViewModel) {
             )
             Spacer(Modifier.height(8.dp))
 
-            ActionRow(
-                title = stringResource(R.string.sms_action_export_system),
-                desc = if (canWrite) {
-                    stringResource(R.string.sms_action_export_system_desc)
-                } else {
-                    stringResource(R.string.sms_action_export_system_desc_need_default)
-                },
-                enabled = vm.localSmsCount > 0 && !vm.busy,
-                onClick = {
-                    if (canWrite) {
-                        vm.exportSmsToSystem()
-                    } else {
-                        requestDefaultSmsApp()
-                    }
-                }
+            Text(
+                stringResource(R.string.sms_restore_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(16.dp))

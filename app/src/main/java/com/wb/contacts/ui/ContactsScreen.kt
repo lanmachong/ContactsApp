@@ -117,6 +117,7 @@ fun ContactsRoot(vm: ContactsViewModel) {
 
         is Screen.Import -> ImportScreen(vm)
         is Screen.ClearData -> ClearDataScreen(vm)
+        is Screen.RestoreData -> RestoreDataScreen(vm)
         is Screen.CallSettings -> CallSettingsScreen(vm)
         is Screen.Sms -> SmsScreen(vm)
         is Screen.CallLog -> CallLogScreen(vm)
@@ -232,12 +233,12 @@ fun HomeScreen(vm: ContactsViewModel) {
                                         onClick = { menuExpanded = false; vm.openCallSettings() }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.home_menu_duplicates)) },
-                                        onClick = { menuExpanded = false; vm.markDuplicates() }
-                                    )
-                                    DropdownMenuItem(
                                         text = { Text(stringResource(R.string.home_menu_clear_data)) },
                                         onClick = { menuExpanded = false; vm.openClearData() }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.home_menu_restore_data)) },
+                                        onClick = { menuExpanded = false; vm.openRestoreData() }
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.home_menu_about)) },

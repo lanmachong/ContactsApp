@@ -54,8 +54,8 @@
     <string name="home_menu_sms">短信备份</string>
     <string name="home_menu_calllog">通话记录备份</string>
     <string name="home_menu_callid">来电识别悬浮窗</string>
-    <string name="home_menu_duplicates">检测重复联系人</string>
     <string name="home_menu_clear_data">清空数据</string>
+    <string name="home_menu_restore_data">还原数据</string>
     <string name="home_menu_about">关于</string>
 
     <!-- ==================== 弹窗 ==================== -->
@@ -80,10 +80,7 @@
     <string name="import_check_duplicates">检测重复</string>
     <string name="import_duplicate_hint">重复的号码会被自动打上「重复」标签，搜号码即可定位；系统通讯录里的重复卡片需要你自己去系统里删。</string>
     <string name="import_export_csv">导出 CSV</string>
-    <string name="import_grant_write">授予写入权限</string>
     <string name="import_section_manage">管理</string>
-    <string name="import_action_export_system">导出到系统通讯录</string>
-    <string name="import_action_export_system_desc">把本应用里的联系人写回手机系统通讯录，号码相同的会跳过，不会写出重复卡片</string>
     <string name="import_section_backed_up">已备份的通讯录</string>
     <string name="import_list_hint">已备份的联系人就在首页的列表里，可搜索、可拨号；重复的号码会打上「重复」标签。</string>
     <string name="import_warning_title">备份提醒</string>
@@ -107,9 +104,6 @@
     <string name="sms_export_csv">导出 CSV</string>
     <string name="sms_privacy_hint">短信内容属于敏感数据，只有你授权后本应用才会读取。所有数据仅存在这台手机上，不上传、不联网。</string>
     <string name="sms_section_manage">管理</string>
-    <string name="sms_action_export_system">导出到系统短信</string>
-    <string name="sms_action_export_system_desc">把本应用里的短信写回手机短信应用，按内容+时间去重</string>
-    <string name="sms_action_export_system_desc_need_default">需要先设为默认短信应用，点击前往系统设置</string>
     <string name="sms_section_backed_up">已备份的短信</string>
     <string name="sms_list_hint">点击可展开全文，号码右侧可直接拨号。列表按导入顺序倒序展示，每页加载 200 条。</string>
     <string name="sms_list_progress">已显示 %1$d 条，共 %2$d 条</string>
@@ -200,22 +194,27 @@
     <string name="about_tagline">数据全部留在本机</string>
     <string name="about_tagline_version">v%1$s · 数据全部留在本机</string>
     <string name="about_what_title">它解决什么问题</string>
-    <string name="about_what_body">把手机通讯录搬进一个加密的本地库：整条记录用 AES-256-GCM 加密后落盘，数据库里没有明文的姓名和号码；再配合来电识别悬浮窗，陌生号码也能看出是谁。</string>
+    <string name="about_what_body">把手机通讯录、短信、通话记录一起搬进一个加密的本地库：整条记录用 AES-256-GCM 加密后落盘，数据库里没有明文的姓名、号码和短信内容；再配合来电识别悬浮窗，陌生号码也能看出是谁。</string>
+    <string name="about_update_title">本次更新</string>
+    <string name="about_update_v1_7">v1.7.0</string>
+    <string name="about_update_v1_7_desc">新增「还原数据」页，可把加密库写回手机系统；清空系统短信前会先说明路径并提供跳转</string>
+    <string name="about_update_v1_6">v1.6.0</string>
+    <string name="about_update_v1_6_desc">备份页改用真实条数，CSV 导出与写回系统都改为全量，不再只导第一页</string>
     <string name="about_features_title">核心功能</string>
     <string name="about_feature_import_title">通讯录备份</string>
-    <string name="about_feature_import_desc">一次性把系统通讯录搬进来；清空系统后仍可随时导回系统，卸载也不怕</string>
+    <string name="about_feature_import_desc">一次性把系统通讯录搬进来；清空系统后仍可随时在「还原数据」里导回系统，卸载前记得先还原或导出 CSV</string>
     <string name="about_feature_crypto_title">加密存储</string>
     <string name="about_feature_crypto_desc">密钥由系统 Keystore 生成，永不落盘、不可导出；数据库被拷走也读不出内容</string>
     <string name="about_feature_sms_title">短信备份</string>
-    <string name="about_feature_sms_desc">短信内容整体加密入库，可查看、可导出 CSV，也可清空系统里的原短信</string>
+    <string name="about_feature_sms_desc">短信内容整体加密入库，可查看、可导出 CSV，也能清空系统里的原短信，需要时再还原回系统</string>
     <string name="about_feature_call_title">通话记录备份</string>
-    <string name="about_feature_call_desc">通话记录加密留存，号码与时长不落明文，随时能查能导出</string>
+    <string name="about_feature_call_desc">通话记录加密留存，号码与时长不落明文，随时能查能导出；受系统限制无法写回手机通话记录</string>
     <string name="about_feature_caller_title">来电识别</string>
     <string name="about_feature_caller_desc">来电时弹悬浮窗显示对方姓名，只识别不拦截、不录音、不上传</string>
     <string name="about_feature_local_title">纯本地</string>
     <string name="about_feature_local_desc">没有账号、没有服务器、没有埋点，所有数据只在这台手机上</string>
     <string name="about_perms_title">权限说明</string>
-    <string name="about_perms_body">每个权限都是对应功能必需，且在你点进那个功能时才申请，不会在启动时一次性索要：\n\n· 通讯录（读）—— 把系统通讯录导入加密库\n· 通讯录（写）—— 把加密库导回系统、清空系统通讯录时才需要\n· 短信（读）—— 把系统短信导入加密库\n· 短信（写）—— 系统规定只有「默认短信应用」才能删短信，所以点清空时若未设置，会直接带你到系统设置页\n· 通话记录（读）—— 把系统通话记录导入加密库\n· 通话状态 —— 挂断后自动撤掉来电悬浮窗\n· 悬浮窗 / 通知 —— 显示来电识别卡片与常驻通知\n\n没有网络权限，没有位置、相机、麦克风、存储权限。</string>
+    <string name="about_perms_body">每个权限都是对应功能必需，且在你点进那个功能时才申请，不会在启动时一次性索要：\n\n· 通讯录（读）—— 把系统通讯录导入加密库\n· 通讯录（写）—— 在「还原数据」里把加密库写回系统时才需要\n· 短信（读）—— 把系统短信导入加密库\n· 短信（写）—— 系统规定只有「默认短信应用」才能删短信，所以勾选短信时若未设置，会先说明原因并提供跳转按钮\n· 通话记录（读）—— 把系统通话记录导入加密库\n· 通话状态 —— 挂断后自动撤掉来电悬浮窗\n· 悬浮窗 / 通知 —— 显示来电识别卡片与常驻通知\n\n没有网络权限，没有位置、相机、麦克风、存储权限。</string>
     <string name="about_dev_title">开发者</string>
     <string name="about_open_github">打开 GitHub</string>
     <string name="about_oss_title">开源</string>
@@ -223,7 +222,7 @@
     <string name="about_open_repo">打开源码仓库</string>
     <string name="about_oss_body">MIT 许可协议，欢迎自行编译、修改、分发。源码里不含任何后端服务，所有功能都在你的手机上跑。</string>
     <string name="about_tips_title">使用提示</string>
-    <string name="about_tips_body">· 重复联系人会被自动打上「重复」标签，搜号码即可定位\n· 卸载 App 会连同加密密钥一起清除，卸载前请先「导出到系统通讯录」或导出 CSV\n· 短信与通话记录同样需要授权才能读取，数据只在本机加密保存\n· 来电悬浮窗需要「显示在其他应用上层」权限，部分国产 ROM 还要额外允许后台弹出界面</string>
+    <string name="about_tips_body">· 重复联系人会自动打上「重复」标签，也可在通讯录备份页点「检测重复」重新跑一遍，搜号码即可定位\n· 卸载 App 会连同加密密钥一起清除，卸载前请先在「还原数据」里导回系统，或导出 CSV 备份\n· 短信与通话记录同样需要授权才能读取，数据只在本机加密保存\n· 通话记录受系统限制无法写回手机通话记录，只能在应用内查看和导出\n· 来电悬浮窗需要「显示在其他应用上层」权限，部分国产 ROM 还要额外允许后台弹出界面</string>
 
     <!-- ==================== 通知 / 悬浮窗 ==================== -->
     <string name="notify_channel_name">来电识别</string>
@@ -420,6 +419,13 @@
     <string name="clear_data_need_select">请至少勾选一项要清空的内容</string>
     <string name="clear_data_warning_title">删除前请确认</string>
     <string name="clear_data_warning_body">· 清空不可撤销，请确认已经导出 CSV 备份\n· 通讯录若来自云端账户，删除可能同步到云端\n· 短信的删除需要本应用是默认短信应用，否则系统会拒绝\n· 通话记录的删除权限只授予系统应用，普通 App 会被拒绝</string>
+    <string name="clear_data_sms_blocked_title">系统短信现在删不掉</string>
+    <string name="clear_data_sms_blocked_body">Android 4.4 起，只有「默认短信应用」才能删除短信；现在系统会直接拒绝这个请求。
+
+两条路可以走：
+· 点下面的按钮，把本应用设为默认短信应用，回来再点清空（推荐，一次搞定）
+· 或者打开手机自带的「信息 / 短信」应用，手动选择要删的短信</string>
+    <string name="clear_data_sms_blocked_action">前往设为默认短信应用</string>
     <string name="busy_clear_data">正在清空…</string>
     <string name="clear_data_done_title">清空完成</string>
     <string name="clear_data_result_deleted">%1$s：已删除 %2$d 条</string>
@@ -430,6 +436,41 @@
     <string name="clear_data_hint_calls">通话记录的删除权限只授予系统应用，普通 App 无法删除。</string>
     <string name="clear_data_local_kept">本应用内的加密副本没有受到影响。</string>
     <string name="clear_data_system_kept">本应用内的加密副本保留，仍然可以查和拨号。</string>
+
+    <!-- ==================== 还原数据 ==================== -->
+    <string name="restore_data_title">还原数据</string>
+    <string name="restore_data_desc">把本应用加密库里的内容写回手机系统。清空之后反悔了、或者要换手机时用得上。写入前会先比对系统里已有的内容并跳过，不会写出重复的通讯录或短信。</string>
+    <string name="restore_data_section_content">要还原哪些内容</string>
+    <string name="restore_data_target_contacts_desc">本应用 %1$d 人 · 系统 %2$d 人</string>
+    <string name="restore_data_target_sms_desc">本应用 %1$d 条 · 系统 %2$d 条</string>
+    <string name="restore_data_target_calls_desc">本应用 %1$d 条 · 系统 %2$d 条</string>
+    <string name="restore_data_confirm_label">输入「%1$s」以确认</string>
+    <string name="restore_data_confirm_keyword">还原</string>
+    <string name="restore_data_confirm_mismatch">输入的确认词不对，需要输入「%1$s」</string>
+    <string name="restore_data_action">立即还原</string>
+    <string name="restore_data_need_select">请至少勾选一项要还原的内容</string>
+    <string name="restore_data_contacts_perm_title">还需要通讯录写入权限</string>
+    <string name="restore_data_contacts_perm_body">把联系人写回系统通讯录需要 WRITE_CONTACTS 权限。授予后就能还原了。</string>
+    <string name="restore_data_contacts_perm_action">授予写入权限</string>
+    <string name="restore_data_sms_role_title">还需要默认短信应用身份</string>
+    <string name="restore_data_sms_role_body">把短信写回系统同样需要本应用是「默认短信应用」。点下面的按钮去系统设置里设置。</string>
+    <string name="restore_data_sms_role_action">前往设为默认短信应用</string>
+    <string name="restore_data_warning_title">还原前请确认</string>
+    <string name="restore_data_warning_body">· 还原会在系统里新增通讯录、短信等内容，本应用里的加密副本不会删除
+· 通话记录无法写回系统 —— 系统只允许自带电话应用写入，普通应用没有这个权限
+· 短信写回系统需要本应用是默认短信应用
+· 如果系统里已有相同号码或相同内容的短信，会自动跳过</string>
+    <string name="restore_data_done_title">还原完成</string>
+    <string name="restore_data_result_written">%1$s：已写回系统 %2$d 条</string>
+    <string name="restore_data_result_skipped">，跳过 %1$d 条（系统里已有）</string>
+    <string name="restore_data_result_denied">%1$s：系统拒绝了写入请求，未能还原</string>
+    <string name="restore_data_hint_contacts">写回通讯录需要 WRITE_CONTACTS 权限，授予后重试即可。</string>
+    <string name="restore_data_hint_sms">写回短信需要本应用是「默认短信应用」，设置后重试即可。</string>
+    <string name="restore_data_hint_calls">通话记录的写入权限只授予系统应用，普通 App 写不回去。</string>
+    <string name="restore_data_local_kept">本应用内的加密副本没有受到影响。</string>
+    <string name="busy_restore_data">正在还原…</string>
+    <string name="import_restore_hint">想把加密库里的联系人写回手机系统？到首页右上角菜单的「还原数据」里操作。</string>
+    <string name="sms_restore_hint">想把加密库里的短信写回手机？到首页右上角菜单的「还原数据」里操作。</string>
 
     <!-- ==================== CSV 表头 ==================== -->
     <string name="csv_contacts_header">姓名,手机号,备用号码,分组,标签,备注,收藏</string>

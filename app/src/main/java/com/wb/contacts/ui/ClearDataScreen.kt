@@ -1,6 +1,12 @@
 package com.wb.contacts.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Surface
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,6 +61,23 @@ import com.wb.contacts.R
 @Composable
 fun ClearDataScreen(vm: ContactsViewModel) {
     val keyword = stringResource(R.string.clear_data_confirm_keyword)
+    val context = LocalContext.current
+    var tick by remember { mutableStateOf(0) }
+
+    // 从系统设置返回后要重新判断「是不是默认短信应用」
+    OnResume { tick++ }
+
+    // 短信能不能删，取决于本应用是不是默认短信应用
+    val canDeleteSms = remember(tick) { SmsDeletePath.canDelete(context) }
+    val requestDefaultSmsApp = rememberDefaultSmsAppLauncher(
+        onReturn = { tick++ },
+        onFail = { vm.notify(context.getString(R.string.sms_cannot_open_settings)) }
+    )
+
+    // 只有在「清空系统里的短信」这一种组合下才需要提示
+    val smsWillBeBlocked = ClearTarget.SMS in vm.clearTargets &&
+        vm.clearDirection == ClearDirection.SYSTEM &&
+        !canDeleteSms
 
     Scaffold(
         topBar = {
@@ -154,6 +177,12 @@ fun ClearDataScreen(vm: ContactsViewModel) {
             )
 
             Spacer(Modifier.height(20.dp))
+
+            // —— 短信删不掉的预检：给路径说明，优先提供跳转 ——
+            if (smsWillBeBlocked) {
+                SmsBlockNotice(onJump = requestDefaultSmsApp)
+                Spacer(Modifier.height(20.dp))
+            }
 
             // —— 确认输入 ——
             Text(
@@ -277,6 +306,49 @@ private fun ClearDirectionRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/**
+ * 「系统短信删不掉」的预检提示。
+ *
+ * 勾了短信 + 选清空系统，但本应用不是默认短信应用时出现。
+ * 给两样东西：一条能走通的删除路径，和一个直接跳到系统设置的按钮（跳转优先）。
+ */
+@Composable
+private fun SmsBlockNotice(onJump: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFB45309),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stringResource(R.string.clear_data_sms_blocked_title),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.clear_data_sms_blocked_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = onJump,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(stringResource(R.string.clear_data_sms_blocked_action)) }
         }
     }
 }

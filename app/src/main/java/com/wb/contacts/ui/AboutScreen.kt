@@ -124,6 +124,23 @@ fun AboutScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(20.dp))
 
             Text(
+                stringResource(R.string.about_update_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(8.dp))
+            UpdateNote(
+                version = stringResource(R.string.about_update_v1_7),
+                desc = stringResource(R.string.about_update_v1_7_desc)
+            )
+            UpdateNote(
+                version = stringResource(R.string.about_update_v1_6),
+                desc = stringResource(R.string.about_update_v1_6_desc)
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            Text(
                 stringResource(R.string.about_features_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
@@ -294,9 +311,42 @@ fun AboutScreen(vm: ContactsViewModel) {
     }
 }
 
+/**
+ * 一条更新说明：左边版本号小标签，右边一句话。
+ *
+ * 参照别家 App 的更新日志写法 —— 版本号 + 一句话，扫一眼就知道这次改了什么。
+ */
 @Composable
-private fun FeatureRow(icon: ImageVector, title: String, desc: String) {
+private fun UpdateNote(version: String, desc: String) {
     Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp)
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            shape = RoundedCornerShape(6.dp)
+        ) {
+            Text(
+                version,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            desc,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun FeatureRow(icon: ImageVector, title: String, desc: String) {    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 14.dp)
