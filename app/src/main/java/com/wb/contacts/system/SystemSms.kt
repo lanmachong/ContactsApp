@@ -166,7 +166,9 @@ object SystemSms {
         val smsDeleted: Int = deleted,
         val mmsDeleted: Int = 0,
         val smsRemaining: Int = remaining,
-        val mmsRemaining: Int = 0
+        val mmsRemaining: Int = 0,
+        /** 剩余文字短信按 sub_id 分组，用于判断是哪张卡 / 哪类记录没删掉 */
+        val remainingSubs: Map<Long, Int> = emptyMap()
     )
 
     /**
@@ -201,14 +203,15 @@ object SystemSms {
             .onSuccess { mmsDeleted += it }
             .onFailure { /* 个别 ROM 不给删彩信表，回读时如实反映 */ }
 
-        // 第二轮：残留按 id 精确补删
-        remainingWithSubId(context).groupBy { it.second }.forEach { (_, items) ->
-            smsDeleted += deleteByIds(context, SMS_URI, items.map { it.first })
+        // 第二轮：残留按 id **逐条**删。
+        // AOSP SmsProvider 对 content://sms 的全量 delete 会强制追加
+        // `sub_id IN (当前活跃订阅)` 过滤，sub_id = -1 的记录永远跳过；
+        // 只有 content://sms/<id> 走 deleteOneSms() 这条分支不带过滤。
+        remainingWithSubId(context).forEach { (id, _) ->
+            smsDeleted += deleteOne(context, SMS_URI, id)
         }
         remainingMmsIds(context).forEach { id ->
-            mmsDeleted += runCatching {
-                resolver.delete(ContentUris.withAppendedId(MMS_URI, id), null, null)
-            }.getOrDefault(0)
+            mmsDeleted += deleteOne(context, MMS_URI, id)
         }
 
         val inv = inventory(context)
@@ -216,37 +219,39 @@ object SystemSms {
         val remaining = inv.total
         // 一条都没删掉、且系统确实拒绝 —— 判定为没有删除权限
         if (deleted == 0 && denied) {
-            return DeleteOutcome(0, remaining, true, 0, 0, inv.sms, inv.mms)
+            return DeleteOutcome(0, remaining, true, 0, 0, inv.sms, inv.mms, inv.perSub)
         }
         // 一条都没删掉、但也没报错 —— 系统静默拒绝（通常是没设为默认短信应用）
         if (deleted == 0 && remaining > 0) {
-            return DeleteOutcome(0, remaining, true, 0, 0, inv.sms, inv.mms)
+            return DeleteOutcome(0, remaining, true, 0, 0, inv.sms, inv.mms, inv.perSub)
         }
         return DeleteOutcome(
             deleted, remaining, denied,
-            smsDeleted, mmsDeleted, inv.sms, inv.mms
+            smsDeleted, mmsDeleted, inv.sms, inv.mms, inv.perSub
         )
     }
 
-    /** 按 id 精确删除（分批，避免 SQL 变量超限） */
-    fun deleteByIds(context: Context, ids: List<Long>): Int =
-        deleteByIds(context, SMS_URI, ids)
-
-    private fun deleteByIds(context: Context, uri: Uri, ids: List<Long>): Int {
-        if (ids.isEmpty()) return 0
+    /** 按 id 精确删除 */
+    fun deleteByIds(context: Context, ids: List<Long>): Int {
         var deleted = 0
-        ids.chunked(200).forEach { chunk ->
-            val placeholders = chunk.joinToString(",") { "?" }
-            deleted += runCatching {
-                context.contentResolver.delete(
-                    uri,
-                    "${Telephony.Sms._ID} IN ($placeholders)",
-                    chunk.map { it.toString() }.toTypedArray()
-                )
-            }.getOrDefault(0)
-        }
+        ids.forEach { deleted += deleteOne(context, SMS_URI, it) }
         return deleted
     }
+
+    /**
+     * 单条删除：用 `content://<表>/<id>`，而不是 `_id IN (...)` 的 where 条件。
+     *
+     * AOSP `SmsProvider.delete()` 的 SMS_ALL 分支会把调用方的 where 与
+     * `ProviderUtil.getSelectionBySubIds()` 返回的 `sub_id IN (活跃订阅)`
+     * 用 AND 拼在一起 —— 所以 `_id IN (...)` 照样删不掉 sub_id = -1 的记录。
+     * SMS_ALL_ID 分支直接走 `MmsSmsDatabaseHelper.deleteOneSms()`，没有这层过滤。
+     */
+    private fun deleteOne(context: Context, uri: Uri, id: Long): Int =
+        runCatching {
+            context.contentResolver.delete(
+                ContentUris.withAppendedId(uri, id), null, null
+            )
+        }.getOrDefault(0)
 
     /**
      * 把本应用里的短信写回系统。

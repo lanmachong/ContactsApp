@@ -130,12 +130,12 @@ fun AboutScreen(vm: ContactsViewModel) {
             )
             Spacer(Modifier.height(8.dp))
             UpdateNote(
-                version = stringResource(R.string.about_update_v1_8_3),
-                desc = stringResource(R.string.about_update_v1_8_3_desc)
+                version = stringResource(R.string.about_update_v1_8_4),
+                desc = stringResource(R.string.about_update_v1_8_4_desc)
             )
             UpdateNote(
-                version = stringResource(R.string.about_update_v1_8_2),
-                desc = stringResource(R.string.about_update_v1_8_2_desc)
+                version = stringResource(R.string.about_update_v1_8_3),
+                desc = stringResource(R.string.about_update_v1_8_3_desc)
             )
 
             Spacer(Modifier.height(20.dp))

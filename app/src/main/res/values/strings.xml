@@ -196,6 +196,8 @@
     <string name="about_what_title">它解决什么问题</string>
     <string name="about_what_body">把手机通讯录、短信、通话记录一起搬进一个加密的本地库：整条记录用 AES-256-GCM 加密后落盘，数据库里没有明文的姓名、号码和短信内容；再配合来电识别悬浮窗，陌生号码也能看出是谁。</string>
     <string name="about_update_title">本次更新</string>
+    <string name="about_update_v1_8_4">v1.8.4</string>
+    <string name="about_update_v1_8_4_desc">修复双卡下「还剩几条短信删不掉、界面却显示 0 条」：新短信补写 SIM 卡标识，删除改为逐条精确删以绕过系统订阅过滤，结果按 SIM 分组回报</string>
     <string name="about_update_v1_8_3">v1.8.3</string>
     <string name="about_update_v1_8_3_desc">清空系统短信时一并清理彩信，系统条数改为「文字短信 + 彩信」；结果按类型分别回报删了多少、还剩多少，并写明哪些需要手动删</string>
     <string name="about_update_v1_8_2">v1.8.2</string>
@@ -451,7 +453,10 @@
     <string name="clear_data_result_remaining">，系统里还剩 %1$d 条</string>
     <string name="clear_data_result_denied">%1$s：系统拒绝了删除请求，未能清空</string>
     <string name="clear_data_sms_breakdown">其中：文字短信已删 %1$d 条、彩信已删 %2$d 条；还剩文字短信 %3$d 条、彩信 %4$d 条。</string>
-    <string name="clear_data_sms_manual_hint">短信应用里若仍显示消息，可能是：本应用看不到的另一张 SIM 卡 / SIM 卡内短信、RCS 或服务号卡片消息（存在厂商私有库），以及清空之后才收到的新短信（不会追删）。这些需要在短信应用里手动删除。</string>
+    <string name="clear_data_sms_subs">剩余文字短信按 SIM 订阅分组：%1$s</string>
+    <string name="clear_data_sms_sub_item">%1$s：%2$d 条</string>
+    <string name="clear_data_sms_sub_unknown">未标注 SIM 卡（sub_id = -1）</string>
+    <string name="clear_data_sms_manual_hint">短信应用里若仍显示消息，可能是：本应用看不到的另一张 SIM 卡 / SIM 卡内短信、RCS 或服务号卡片消息（存在厂商私有库），以及清空之后才收到的新短信（不会追删），这些需在短信应用里手动删。v1.8.4 起新短信会写入 SIM 卡标识、删除改为逐条精确删；旧版遗留的「无标识」短信请再执行一次清空即可删掉。</string>
     <string name="clear_data_hint_contacts">通讯录若来自云端账户，删除可能同步到云端。</string>
     <string name="clear_data_hint_sms">没删干净时请看下面的分类明细：彩信、另一张 SIM 卡、SIM 卡内短信、RCS / 服务号卡片消息，以及清空后新收到的短信，都可能需要到短信应用里手动删。</string>
     <string name="clear_data_hint_calls">没拿到 WRITE_CALL_LOG 权限时系统不让删；先授予权限再试。个别 ROM 始终拒绝的话，只能在自带电话 App 里手动清。</string>

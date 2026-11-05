@@ -205,6 +205,8 @@
     <string name="about_what_title">What it solves</string>
     <string name="about_what_body">It moves your phone contacts, messages and call history into an encrypted local vault: every record is encrypted with AES-256-GCM before it hits the disk, so the database holds no readable names, numbers or message bodies. Paired with the caller ID overlay, even an unknown number shows you who it is.</string>
     <string name="about_update_title">What\'s new</string>
+    <string name="about_update_v1_8_4">v1.8.4</string>
+    <string name="about_update_v1_8_4_desc">Fixed dual-SIM messages that could not be deleted while the counter showed 0: incoming messages now carry the SIM subscription id, deletion goes message by message to bypass the system subscription filter, and results break down what is left by SIM</string>
     <string name="about_update_v1_8_3">v1.8.3</string>
     <string name="about_update_v1_8_3_desc">Clearing system messages now covers MMS too; the system count includes both SMS and MMS, results break down deleted and remaining by type, and the parts that need manual deletion are spelled out</string>
     <string name="about_update_v1_8_2">v1.8.2</string>
@@ -497,7 +499,10 @@ There is no network permission, and no location, camera, microphone, or storage 
     <string name="clear_data_result_remaining">, %1$d left in the system</string>
     <string name="clear_data_result_denied">%1$s: the system refused the delete request</string>
     <string name="clear_data_sms_breakdown">Breakdown: deleted %1$d text messages and %2$d MMS; %3$d text messages and %4$d MMS remain.</string>
-    <string name="clear_data_sms_manual_hint">If your messaging app still shows messages, they may be on another SIM / in SIM-card storage, RCS or service card messages in a vendor-private store, or messages received after the clear (those are not deleted retroactively). Delete those manually in your messaging app.</string>
+    <string name="clear_data_sms_subs">Remaining text messages by SIM subscription: %1$s</string>
+    <string name="clear_data_sms_sub_item">%1$s: %2$d</string>
+    <string name="clear_data_sms_sub_unknown">No SIM tag (sub_id = -1)</string>
+    <string name="clear_data_sms_manual_hint">If your messaging app still shows messages, they may be on another SIM / in SIM-card storage, RCS or service card messages in a vendor-private store, or messages received after the clear (those are not deleted retroactively). Delete those manually in your messaging app. Since v1.8.4 incoming messages carry the SIM subscription id and deletion is done message by message; run one more clear to remove older untagged messages.</string>
     <string name="clear_data_hint_contacts">If the contacts come from a cloud account, deleting them may sync back to the cloud.</string>
     <string name="clear_data_hint_sms">When something is left, check the breakdown below: MMS, the other SIM, SIM-card storage, RCS / service card messages, and messages received after the clear may all need manual deletion in your messaging app.</string>
     <string name="clear_data_hint_calls">Without WRITE_CALL_LOG the system refuses the delete; grant it and retry. If a ROM always refuses, use the built-in Phone app to clear the log manually.</string>

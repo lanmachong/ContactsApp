@@ -913,7 +913,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                                 SystemSms.DeleteOutcome(
                                     0, outcome.remaining, false,
                                     smsRemaining = outcome.smsRemaining,
-                                    mmsRemaining = outcome.mmsRemaining
+                                    mmsRemaining = outcome.mmsRemaining,
+                                    remainingSubs = outcome.remainingSubs
                                 )
                             }
                     }
@@ -924,17 +925,43 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                         smsDeleted = outcome.smsDeleted + again.smsDeleted,
                         mmsDeleted = outcome.mmsDeleted + again.mmsDeleted,
                         smsRemaining = again.smsRemaining,
-                        mmsRemaining = again.mmsRemaining
+                        mmsRemaining = again.mmsRemaining,
+                        remainingSubs = again.remainingSubs.ifEmpty { outcome.remainingSubs }
                     )
                 }
-                // 分类明细：删掉/剩下的分别是文字短信还是彩信，别再只报一个笼统数字
-                val detail = context.getString(
-                    R.string.clear_data_sms_breakdown,
-                    outcome.smsDeleted,
-                    outcome.mmsDeleted,
-                    outcome.smsRemaining,
-                    outcome.mmsRemaining
-                )
+                // 分类明细：文字/彩信各删了多少、还剩多少；剩余再按 sub_id 拆开，
+                // 让用户能直接看出是哪张卡、哪类记录没删掉
+                val detail = buildString {
+                    append(
+                        context.getString(
+                            R.string.clear_data_sms_breakdown,
+                            outcome.smsDeleted,
+                            outcome.mmsDeleted,
+                            outcome.smsRemaining,
+                            outcome.mmsRemaining
+                        )
+                    )
+                    if (outcome.remainingSubs.isNotEmpty()) {
+                        appendLine()
+                        append(
+                            context.getString(
+                                R.string.clear_data_sms_subs,
+                                outcome.remainingSubs.entries
+                                    .sortedBy { it.key }
+                                    .joinToString(" · ") { (sub, count) ->
+                                        val label = if (sub < 0) {
+                                            context.getString(R.string.clear_data_sms_sub_unknown)
+                                        } else {
+                                            "sub_id $sub"
+                                        }
+                                        context.getString(
+                                            R.string.clear_data_sms_sub_item, label, count
+                                        )
+                                    }
+                            )
+                        )
+                    }
+                }
                 ClearResult(target, outcome.deleted, outcome.remaining, outcome.denied, detail)
             }
         }
