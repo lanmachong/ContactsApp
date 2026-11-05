@@ -116,6 +116,7 @@ fun ContactsRoot(vm: ContactsViewModel) {
         }
 
         is Screen.Import -> ImportScreen(vm)
+        is Screen.ClearData -> ClearDataScreen(vm)
         is Screen.CallSettings -> CallSettingsScreen(vm)
         is Screen.Sms -> SmsScreen(vm)
         is Screen.CallLog -> CallLogScreen(vm)
@@ -141,51 +142,6 @@ fun ContactsRoot(vm: ContactsViewModel) {
         )
     }
 
-    if (vm.confirmClearAll) {
-        AlertDialog(
-            onDismissRequest = vm::dismissClearAll,
-            title = { Text(stringResource(R.string.dialog_clear_title)) },
-            text = { Text(stringResource(R.string.dialog_clear_message)) },
-            confirmButton = {
-                TextButton(onClick = vm::doClearAll) {
-                    Text(
-                        stringResource(R.string.action_confirm_clear),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = vm::dismissClearAll) { Text(stringResource(R.string.action_cancel)) }
-            }
-        )
-    }
-
-    if (vm.confirmWipeAll) {
-        AlertDialog(
-            onDismissRequest = vm::dismissWipeAll,
-            title = { Text(stringResource(R.string.dialog_wipe_all_title)) },
-            text = {
-                val countText = if (vm.systemContactCount > 0) {
-                    pluralStringResource(R.plurals.dialog_wipe_all_count, vm.systemContactCount, vm.systemContactCount)
-                } else {
-                    stringResource(R.string.dialog_wipe_all_count_any)
-                }
-                Text(stringResource(R.string.dialog_wipe_all_message, countText))
-            },
-            confirmButton = {
-                TextButton(onClick = vm::doWipeAll) {
-                    Text(
-                        stringResource(R.string.action_backed_up_delete),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = vm::dismissWipeAll) { Text(stringResource(R.string.action_cancel)) }
-            }
-        )
-    }
-
     val result = vm.resultDialog
     if (result != null) {
         AlertDialog(
@@ -198,81 +154,7 @@ fun ContactsRoot(vm: ContactsViewModel) {
         )
     }
 
-    if (vm.confirmWipeSms) {
-        AlertDialog(
-            onDismissRequest = vm::dismissWipeSms,
-            title = { Text(stringResource(R.string.dialog_wipe_sms_title)) },
-            text = { Text(stringResource(R.string.dialog_wipe_sms_message)) },
-            confirmButton = {
-                TextButton(onClick = vm::doWipeSms) {
-                    Text(
-                        stringResource(R.string.action_backed_up_delete),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = vm::dismissWipeSms) { Text(stringResource(R.string.action_cancel)) }
-            }
-        )
-    }
 
-    if (vm.confirmClearSms) {
-        AlertDialog(
-            onDismissRequest = vm::dismissClearSms,
-            title = { Text(stringResource(R.string.dialog_clear_sms_title)) },
-            text = { Text(stringResource(R.string.dialog_clear_sms_message)) },
-            confirmButton = {
-                TextButton(onClick = vm::doClearSms) {
-                    Text(
-                        stringResource(R.string.action_confirm_clear),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = vm::dismissClearSms) { Text(stringResource(R.string.action_cancel)) }
-            }
-        )
-    }
-
-    if (vm.confirmWipeCalls) {
-        AlertDialog(
-            onDismissRequest = vm::dismissWipeCalls,
-            title = { Text(stringResource(R.string.dialog_wipe_calls_title)) },
-            text = { Text(stringResource(R.string.dialog_wipe_calls_message)) },
-            confirmButton = {
-                TextButton(onClick = vm::doWipeCalls) {
-                    Text(
-                        stringResource(R.string.action_backed_up_delete),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = vm::dismissWipeCalls) { Text(stringResource(R.string.action_cancel)) }
-            }
-        )
-    }
-
-    if (vm.confirmClearCalls) {
-        AlertDialog(
-            onDismissRequest = vm::dismissClearCalls,
-            title = { Text(stringResource(R.string.dialog_clear_calls_title)) },
-            text = { Text(stringResource(R.string.dialog_clear_calls_message)) },
-            confirmButton = {
-                TextButton(onClick = vm::doClearCalls) {
-                    Text(
-                        stringResource(R.string.action_confirm_clear),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = vm::dismissClearCalls) { Text(stringResource(R.string.action_cancel)) }
-            }
-        )
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -354,8 +236,8 @@ fun HomeScreen(vm: ContactsViewModel) {
                                         onClick = { menuExpanded = false; vm.markDuplicates() }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.home_menu_clear_local)) },
-                                        onClick = { menuExpanded = false; vm.requestClearAll() }
+                                        text = { Text(stringResource(R.string.home_menu_clear_data)) },
+                                        onClick = { menuExpanded = false; vm.openClearData() }
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.home_menu_about)) },

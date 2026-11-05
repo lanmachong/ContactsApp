@@ -266,28 +266,11 @@ fun SmsScreen(vm: ContactsViewModel) {
                 }
             )
             ActionRow(
-                title = stringResource(R.string.sms_action_wipe_system),
-                desc = if (canWrite) {
-                    stringResource(R.string.sms_action_wipe_system_desc)
-                } else {
-                    stringResource(R.string.sms_action_export_system_desc_need_default)
-                },
+                title = stringResource(R.string.sms_action_clear_data),
+                desc = stringResource(R.string.sms_action_clear_data_desc),
                 enabled = !vm.busy,
                 danger = true,
-                onClick = {
-                    if (canWrite) {
-                        vm.requestWipeSms()
-                    } else {
-                        requestDefaultSmsApp()
-                    }
-                }
-            )
-            ActionRow(
-                title = stringResource(R.string.sms_action_clear_local),
-                desc = stringResource(R.string.sms_action_clear_local_desc),
-                enabled = vm.smsMessages.isNotEmpty() && !vm.busy,
-                danger = true,
-                onClick = { vm.requestClearSms() }
+                onClick = { vm.openClearData() }
             )
 
             Spacer(Modifier.height(16.dp))

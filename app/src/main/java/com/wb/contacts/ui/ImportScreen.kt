@@ -246,26 +246,11 @@ fun ImportScreen(vm: ContactsViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedButton(
-                    onClick = {
-                        if (!canWrite) {
-                            permissionLauncher.launch(
-                                arrayOf(android.Manifest.permission.WRITE_CONTACTS)
-                            )
-                        } else {
-                            vm.requestWipeAll()
-                        }
-                    },
+                    onClick = { vm.openClearData() },
                     enabled = !vm.busy,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        when {
-                            !canWrite -> stringResource(R.string.import_grant_write)
-                            !vm.systemScanned -> stringResource(R.string.import_reading)
-                            vm.systemContactCount == 0 -> stringResource(R.string.import_system_empty)
-                            else -> pluralStringResource(R.plurals.import_wipe_count, vm.systemContactCount, vm.systemContactCount)
-                        }
-                    )
+                    Text(stringResource(R.string.import_step4_action))
                 }
             }
 

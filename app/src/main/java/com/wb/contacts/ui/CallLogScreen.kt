@@ -208,22 +208,11 @@ fun CallLogScreen(vm: ContactsViewModel) {
             Spacer(Modifier.height(8.dp))
 
             ActionRow(
-                title = stringResource(R.string.calllog_action_wipe_system),
-                desc = if (canWrite) {
-                    stringResource(R.string.calllog_action_wipe_system_desc)
-                } else {
-                    stringResource(R.string.calllog_action_wipe_system_desc_denied)
-                },
-                enabled = canWrite && !vm.busy,
+                title = stringResource(R.string.calllog_action_clear_data),
+                desc = stringResource(R.string.calllog_action_clear_data_desc),
+                enabled = !vm.busy,
                 danger = true,
-                onClick = { vm.requestWipeCalls() }
-            )
-            ActionRow(
-                title = stringResource(R.string.calllog_action_clear_local),
-                desc = stringResource(R.string.calllog_action_clear_local_desc),
-                enabled = vm.callRecords.isNotEmpty() && !vm.busy,
-                danger = true,
-                onClick = { vm.requestClearCalls() }
+                onClick = { vm.openClearData() }
             )
 
             Spacer(Modifier.height(16.dp))

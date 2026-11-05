@@ -34,8 +34,11 @@ sealed interface Screen {
     data class Detail(val id: Long) : Screen
     data class Edit(val id: Long?) : Screen
 
-    /** 导入 / 清理系统通讯录 */
+    /** 导入 / 备份系统通讯录 */
     data object Import : Screen
+
+    /** 清空数据（短信 / 通话记录 / 通讯录 × 系统 / 本应用） */
+    data object ClearData : Screen
 
     /** 来电识别悬浮窗设置 */
     data object CallSettings : Screen
@@ -51,6 +54,12 @@ sealed interface Screen {
 }
 
 data class ContactSection(val title: String, val items: List<Contact>)
+
+/** 要清空的内容 */
+enum class ClearTarget { CONTACTS, SMS, CALLS }
+
+/** 清空的方向：系统里的原始数据，还是本应用里的加密副本 */
+enum class ClearDirection { SYSTEM, LOCAL }
 
 /** 导入结果汇总，直接用于结果弹窗文案 */
 data class ImportOutcome(
@@ -115,9 +124,20 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var pendingDeleteId by mutableStateOf<Long?>(null)
         private set
-    var confirmClearAll by mutableStateOf(false)
-        private set
     var toast by mutableStateOf<String?>(null)
+        private set
+
+    // ——— 清空数据 ———
+    /** 勾选要清空的内容，默认一个都不勾 */
+    var clearTargets by mutableStateOf<Set<ClearTarget>>(emptySet())
+        private set
+
+    /** 清空方向，默认清空本应用里的加密副本（系统数据删了不可恢复，先给保守默认） */
+    var clearDirection by mutableStateOf(ClearDirection.LOCAL)
+        private set
+
+    /** 用户输入的确认词 */
+    var clearConfirmInput by mutableStateOf("")
         private set
 
     /** 首次加载是否已完成，避免「查不到联系人」被误判为已删除 */
@@ -134,8 +154,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     var busyText by mutableStateOf("")
         private set
     var resultDialog by mutableStateOf<ResultDialog?>(null)
-        private set
-    var confirmWipeAll by mutableStateOf(false)
         private set
 
     // ——— 来电识别 ———
@@ -158,14 +176,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     var smsLoaded by mutableStateOf(false)
         private set
     var callLogLoaded by mutableStateOf(false)
-        private set
-    var confirmWipeSms by mutableStateOf(false)
-        private set
-    var confirmWipeCalls by mutableStateOf(false)
-        private set
-    var confirmClearSms by mutableStateOf(false)
-        private set
-    var confirmClearCalls by mutableStateOf(false)
         private set
 
     data class ResultDialog(val title: String, val message: String)
@@ -201,6 +211,15 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     fun openImport() {
         screen = Screen.Import
         scanSystemContacts()
+    }
+
+    /** 打开「清空数据」页，进入时重置上一次的勾选和确认词 */
+    fun openClearData() {
+        screen = Screen.ClearData
+        clearTargets = emptySet()
+        clearDirection = ClearDirection.LOCAL
+        clearConfirmInput = ""
+        refreshClearCounts()
     }
 
     fun openCallSettings() {
@@ -306,20 +325,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun requestClearAll() {
-        confirmClearAll = true
+        openClearData()
     }
 
     fun dismissClearAll() {
-        confirmClearAll = false
-    }
-
-    fun doClearAll() {
-        confirmClearAll = false
-        viewModelScope.launch {
-            repo.deleteAll()
-            refresh()
-            toast = context.getString(R.string.toast_cleared)
-        }
+        screen = Screen.Home
     }
 
     fun consumeToast() {
@@ -656,72 +666,271 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      * raw contact 删除，本应用内的加密副本不受影响，照样能查能拨。
      */
 
-    fun requestWipeAll() {
-        // 没扫过或数字过期时先刷新一次，确认按钮上的数字是真的
-        if (!systemScanned) scanSystemContacts()
-        confirmWipeAll = true
-    }
-
-    fun dismissWipeAll() {
-        confirmWipeAll = false
-    }
+    // ————————————————— 清空数据 —————————————————
 
     /**
-     * 删除系统通讯录里的全部联系人：重复的、没有号码的、导入后才新增的，一次清干净。
-     * 部分机型第一次删除会残留（同步适配器把记录又写回来），这里删完回读一次，
-     * 还有残留就再删一遍，最多两轮。
+     * 本应用内各模块的条数，供清空页展示「本应用有多少、删除多少」。
+     * 系统的条数由各自的页面刷新，这里只在进清空页时拉一次。
      */
-    fun doWipeAll() {
-        confirmWipeAll = false
-        if (!PermissionUtil.canWriteContacts(context)) {
-            toast = context.getString(R.string.err_write_contacts)
+    var localContactCount by mutableStateOf(0)
+        private set
+    var localSmsCount by mutableStateOf(0)
+        private set
+    var localCallCount by mutableStateOf(0)
+        private set
+
+    /** 刷新清空页要展示的计数 */
+    fun refreshClearCounts() {
+        viewModelScope.launch {
+            localContactCount = _contacts.value.size
+            localSmsCount = withContext(Dispatchers.IO) {
+                runCatching { archiveRepo.smsTable.count() }.getOrDefault(0)
+            }
+            localCallCount = withContext(Dispatchers.IO) {
+                runCatching { archiveRepo.callTable.count() }.getOrDefault(0)
+            }
+            systemContactCount = withContext(Dispatchers.IO) {
+                runCatching { SystemContacts.countAll(context) }.getOrDefault(0)
+            }
+            systemScanned = true
+            systemSmsCount = withContext(Dispatchers.IO) {
+                runCatching { SystemSms.countAll(context) }.getOrDefault(0)
+            }
+            systemCallCount = withContext(Dispatchers.IO) {
+                runCatching { SystemCallLog.countAll(context) }.getOrDefault(0)
+            }
+        }
+    }
+
+    fun toggleClearTarget(target: ClearTarget, on: Boolean) {
+        clearTargets = if (on) clearTargets + target else clearTargets - target
+    }
+
+    /** 选择清空方向（方法名不叫 setClearDirection，避免和属性的 setter 同名冲突） */
+    fun selectClearDirection(direction: ClearDirection) {
+        clearDirection = direction
+    }
+
+    fun onClearConfirmChange(value: String) {
+        clearConfirmInput = value
+    }
+
+    /** 确认词是否输入正确（忽略大小写与首尾空格） */
+    fun clearConfirmMatched(keyword: String): Boolean =
+        clearConfirmInput.trim().equals(keyword.trim(), ignoreCase = true)
+
+    /** 可以执行的条件：勾了至少一项 + 方向已定 + 确认词正确 */
+    fun clearReady(keyword: String): Boolean =
+        clearTargets.isNotEmpty() && clearConfirmMatched(keyword)
+
+    /**
+     * 执行清空。
+     *
+     * 逐项独立处理，一项失败不影响其他项 —— 比如系统通话记录删不掉
+     * （普通应用没有 WRITE_CALL_LOG），短信和通讯录照样能清。
+     * 最后把每项的结果汇总成一张弹窗，如实回报删了多少、还剩多少。
+     */
+    fun executeClear() {
+        val keyword = context.getString(R.string.clear_data_confirm_keyword)
+        if (!clearReady(keyword)) {
+            toast = context.getString(
+                if (clearTargets.isEmpty()) {
+                    R.string.clear_data_need_select
+                } else {
+                    R.string.clear_data_confirm_mismatch
+                }
+            )
             return
         }
         if (busy) return
+
+        val targets = clearTargets.toList()
+        val direction = clearDirection
         busy = true
-        busyText = context.getString(R.string.busy_wipe_system)
+        busyText = context.getString(R.string.busy_clear_data)
         viewModelScope.launch {
-            var deleted = withContext(Dispatchers.IO) {
-                runCatching { SystemContacts.deleteAll(context) }.getOrDefault(-1)
-            }
-            var remaining = withContext(Dispatchers.IO) {
-                runCatching { SystemContacts.countAll(context) }.getOrDefault(0)
-            }
-            // 第一轮没删干净就再来一轮，避免「清完还剩几个」
-            if (deleted >= 0 && remaining > 0) {
-                val again = withContext(Dispatchers.IO) {
-                    runCatching { SystemContacts.deleteAll(context) }.getOrDefault(0)
-                }
-                if (again > 0) {
-                    deleted += again
-                    remaining = withContext(Dispatchers.IO) {
-                        runCatching { SystemContacts.countAll(context) }.getOrDefault(remaining)
-                    }
-                }
+            val results = withContext(Dispatchers.IO) {
+                targets.map { target -> clearOne(target, direction) }
             }
             busy = false
             busyText = ""
-            systemContactCount = remaining
-            systemScanned = true
-            if (deleted < 0) {
-                resultDialog = ResultDialog(
-                    context.getString(R.string.wipe_failed_title),
-                    context.getString(R.string.wipe_denied_message)
-                )
-            } else {
-                resultDialog = ResultDialog(
-                    context.getString(R.string.wipe_done_title),
-                    buildString {
-                        appendLine(context.resources.getQuantityString(R.plurals.wipe_deleted, deleted, deleted))
-                        appendLine(context.getString(R.string.wipe_copy_kept))
-                        if (remaining > 0) {
-                            appendLine()
-                            appendLine(context.resources.getQuantityString(R.plurals.wipe_remaining, remaining, remaining))
-                        }
-                        appendLine()
-                        append(context.getString(R.string.wipe_cloud_note))
+            // 无论删的是哪一边，界面上的计数都要重新拉一遍
+            refresh()
+            refreshClearCounts()
+            loadSms()
+            loadCallLog()
+            resultDialog = ResultDialog(
+                context.getString(R.string.clear_data_done_title),
+                buildString {
+                    results.forEach { r ->
+                        appendLine(r.describe(context))
                     }
-                )
+                    appendLine()
+                    append(
+                        context.getString(
+                            if (direction == ClearDirection.SYSTEM) {
+                                R.string.clear_data_local_kept
+                            } else {
+                                R.string.clear_data_system_kept
+                            }
+                        )
+                    )
+                }
+            )
+            // 执行完把勾选清掉，避免用户返回再进来时看到上次的残留状态
+            clearTargets = emptySet()
+            clearConfirmInput = ""
+        }
+    }
+
+    /** 单项清空的结果 */
+    private data class ClearResult(
+        val target: ClearTarget,
+        val deleted: Int,
+        val remaining: Int,
+        val denied: Boolean
+    ) {
+        /** 没删干净时给出原因提示，避免用户一头雾水 */
+        private fun hintRes(): Int = when (target) {
+            ClearTarget.CONTACTS -> R.string.clear_data_hint_contacts
+            ClearTarget.SMS -> R.string.clear_data_hint_sms
+            ClearTarget.CALLS -> R.string.clear_data_hint_calls
+        }
+
+        fun describe(context: Context): String {
+            val label = context.getString(
+                when (target) {
+                    ClearTarget.CONTACTS -> R.string.clear_data_target_contacts
+                    ClearTarget.SMS -> R.string.clear_data_target_sms
+                    ClearTarget.CALLS -> R.string.clear_data_target_calls
+                }
+            )
+            return buildString {
+                if (denied) {
+                    append(context.getString(R.string.clear_data_result_denied, label))
+                } else {
+                    append(
+                        context.getString(
+                            R.string.clear_data_result_deleted,
+                            label,
+                            deleted
+                        )
+                    )
+                    if (remaining > 0) {
+                        append(
+                            context.getString(
+                                R.string.clear_data_result_remaining,
+                                remaining
+                            )
+                        )
+                    }
+                }
+                if (denied || remaining > 0) {
+                    append("\n")
+                    append(context.getString(hintRes()))
+                }
+            }
+        }
+    }
+
+    /** 清空一项 */
+    private suspend fun clearOne(
+        target: ClearTarget,
+        direction: ClearDirection
+    ): ClearResult = when (direction) {
+        ClearDirection.LOCAL -> clearLocal(target)
+        ClearDirection.SYSTEM -> clearSystem(target)
+    }
+
+    /** 清空本应用里的加密副本 —— 不需要任何系统权限，一定能删 */
+    private suspend fun clearLocal(target: ClearTarget): ClearResult = when (target) {
+        ClearTarget.CONTACTS -> {
+            val before = repo.count()
+            repo.deleteAll()
+            ClearResult(target, before, 0, false)
+        }
+        ClearTarget.SMS -> {
+            val before = archiveRepo.smsTable.count()
+            archiveRepo.smsTable.deleteAll()
+            ClearResult(target, before, 0, false)
+        }
+        ClearTarget.CALLS -> {
+            val before = archiveRepo.callTable.count()
+            archiveRepo.callTable.deleteAll()
+            ClearResult(target, before, 0, false)
+        }
+    }
+
+    /**
+     * 清空系统里的原始数据。
+     *
+     * 每一项的删除权限不一样，失败的原因也各不相同，如实回报：
+     * · 通讯录 —— 需要 WRITE_CONTACTS
+     * · 短信 —— Android 4.4 起必须是默认短信应用
+     * · 通话记录 —— WRITE_CALL_LOG 是 signature 级权限，普通 App 拿不到
+     */
+    private suspend fun clearSystem(target: ClearTarget): ClearResult = when (target) {
+        ClearTarget.CONTACTS -> {
+            if (!PermissionUtil.canWriteContacts(context)) {
+                ClearResult(target, 0, 0, true)
+            } else {
+                var deleted = withContext(Dispatchers.IO) {
+                    runCatching { SystemContacts.deleteAll(context) }.getOrDefault(-1)
+                }
+                var remaining = withContext(Dispatchers.IO) {
+                    runCatching { SystemContacts.countAll(context) }.getOrDefault(0)
+                }
+                // 第一轮没删干净就再来一轮，避免「清完还剩几个」
+                if (deleted >= 0 && remaining > 0) {
+                    val again = withContext(Dispatchers.IO) {
+                        runCatching { SystemContacts.deleteAll(context) }.getOrDefault(0)
+                    }
+                    if (again > 0) {
+                        deleted += again
+                        remaining = withContext(Dispatchers.IO) {
+                            runCatching { SystemContacts.countAll(context) }.getOrDefault(remaining)
+                        }
+                    }
+                }
+                if (deleted < 0) ClearResult(target, 0, remaining, true)
+                else ClearResult(target, deleted, remaining, false)
+            }
+        }
+        ClearTarget.SMS -> {
+            if (!PermissionUtil.canWriteSms(context)) {
+                ClearResult(target, 0, 0, true)
+            } else {
+                var outcome = withContext(Dispatchers.IO) {
+                    runCatching { SystemSms.deleteAll(context) }
+                        .getOrElse { SystemSms.DeleteOutcome(0, 0, true) }
+                }
+                // 第一轮没删干净就再来一轮，避免「清完还剩几个」
+                if (!outcome.denied && outcome.remaining > 0) {
+                    val again = withContext(Dispatchers.IO) {
+                        runCatching { SystemSms.deleteAll(context) }
+                            .getOrElse { SystemSms.DeleteOutcome(0, outcome.remaining, false) }
+                    }
+                    outcome = SystemSms.DeleteOutcome(
+                        deleted = outcome.deleted + again.deleted,
+                        remaining = again.remaining,
+                        denied = outcome.denied || again.denied
+                    )
+                }
+                ClearResult(target, outcome.deleted, outcome.remaining, outcome.denied)
+            }
+        }
+        ClearTarget.CALLS -> {
+            if (!PermissionUtil.canWriteCallLog(context)) {
+                ClearResult(target, 0, 0, true)
+            } else {
+                val deleted = withContext(Dispatchers.IO) {
+                    runCatching { SystemCallLog.deleteAll(context) }.getOrDefault(-1)
+                }
+                val remaining = withContext(Dispatchers.IO) {
+                    runCatching { SystemCallLog.countAll(context) }.getOrDefault(0)
+                }
+                if (deleted < 0) ClearResult(target, 0, remaining, true)
+                else ClearResult(target, deleted, remaining, false)
             }
         }
     }
@@ -855,70 +1064,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun requestWipeSms() {
-        confirmWipeSms = true
-    }
-
-    fun dismissWipeSms() {
-        confirmWipeSms = false
-    }
-
-    /** 清空系统短信。Android 4.4+ 需要默认短信应用身份，可能删不掉，如实回报 */
-    fun doWipeSms() {
-        confirmWipeSms = false
-        if (!PermissionUtil.canWriteSms(context)) {
-            toast = context.getString(R.string.err_write_sms)
-            return
-        }
-        if (busy) return
-        busy = true
-        busyText = context.getString(R.string.busy_wipe_sms)
-        viewModelScope.launch {
-            val deleted = withContext(Dispatchers.IO) {
-                runCatching { SystemSms.deleteAll(context) }.getOrDefault(-1)
-            }
-            val remaining = withContext(Dispatchers.IO) {
-                runCatching { SystemSms.countAll(context) }.getOrDefault(0)
-            }
-            busy = false
-            busyText = ""
-            systemSmsCount = remaining
-            if (deleted < 0) {
-                resultDialog = ResultDialog(
-                    context.getString(R.string.sms_wipe_denied_title),
-                    context.getString(R.string.sms_wipe_denied_message)
-                )
-            } else {
-                resultDialog = ResultDialog(
-                    context.getString(R.string.sms_wipe_done_title),
-                    buildString {
-                        appendLine(context.resources.getQuantityString(R.plurals.sms_wipe_deleted, deleted, deleted))
-                        appendLine(context.getString(R.string.sms_wipe_copy_kept))
-                        if (remaining > 0) {
-                            appendLine()
-                            appendLine(context.resources.getQuantityString(R.plurals.sms_wipe_remaining, remaining, remaining))
-                        }
-                    }
-                )
-            }
-        }
-    }
-
-    fun requestClearSms() {
-        confirmClearSms = true
-    }
-
-    fun dismissClearSms() {
-        confirmClearSms = false
-    }
-
-    /** 清空本应用内的短信副本 */
-    fun doClearSms() {
-        confirmClearSms = false
-        viewModelScope.launch {
-            archiveRepo.smsTable.deleteAll()
-            smsMessages = emptyList()
-            toast = context.getString(R.string.toast_sms_cleared)
-        }
+        // 删除入口已集中到「清空数据」页，这里只保留跳转
+        openClearData()
     }
 
     fun deleteSms(id: Long) {
@@ -1090,62 +1237,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun requestWipeCalls() {
-        confirmWipeCalls = true
-    }
-
-    fun dismissWipeCalls() {
-        confirmWipeCalls = false
-    }
-
-    /** 清空系统通话记录。普通应用没有 WRITE_CALL_LOG，大概率被系统拒绝 */
-    fun doWipeCalls() {
-        confirmWipeCalls = false
-        if (!PermissionUtil.canWriteCallLog(context)) {
-            toast = context.getString(R.string.err_calllog_not_allowed)
-            return
-        }
-        if (busy) return
-        busy = true
-        busyText = context.getString(R.string.busy_wipe_calllog)
-        viewModelScope.launch {
-            val deleted = withContext(Dispatchers.IO) {
-                runCatching { SystemCallLog.deleteAll(context) }.getOrDefault(-1)
-            }
-            val remaining = withContext(Dispatchers.IO) {
-                runCatching { SystemCallLog.countAll(context) }.getOrDefault(0)
-            }
-            busy = false
-            busyText = ""
-            systemCallCount = remaining
-            if (deleted < 0 || remaining > 0) {
-                resultDialog = ResultDialog(
-                    context.getString(R.string.call_wipe_denied_title),
-                    context.getString(R.string.call_wipe_denied_message)
-                )
-            } else {
-                resultDialog = ResultDialog(
-                    context.getString(R.string.call_wipe_done_title),
-                    context.resources.getQuantityString(R.plurals.call_wipe_deleted, deleted, deleted)
-                )
-            }
-        }
-    }
-
-    fun requestClearCalls() {
-        confirmClearCalls = true
-    }
-
-    fun dismissClearCalls() {
-        confirmClearCalls = false
-    }
-
-    fun doClearCalls() {
-        confirmClearCalls = false
-        viewModelScope.launch {
-            archiveRepo.callTable.deleteAll()
-            callRecords = emptyList()
-            toast = context.getString(R.string.toast_call_cleared)
-        }
+        // 删除入口已集中到「清空数据」页，这里只保留跳转
+        openClearData()
     }
 
     fun deleteCall(id: Long) {

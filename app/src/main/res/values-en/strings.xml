@@ -7,7 +7,6 @@
 
     <!-- ==================== Common actions ==================== -->
     <string name="action_cancel">Cancel</string>
-    <string name="action_confirm_clear">Clear all</string>
     <string name="action_delete">Delete</string>
     <string name="action_save">Save</string>
     <string name="action_ok">Got it</string>
@@ -22,7 +21,6 @@
     <string name="action_load_more">Load more</string>
     <string name="action_importing">Importing…</string>
     <string name="action_view">View</string>
-    <string name="action_backed_up_delete">I backed up, delete all</string>
     <string name="action_add_contact">Add contact</string>
 
     <!-- ==================== Tags / groups ==================== -->
@@ -58,29 +56,12 @@
     <string name="home_menu_calllog">Call log backup</string>
     <string name="home_menu_callid">Caller ID overlay</string>
     <string name="home_menu_duplicates">Find duplicate contacts</string>
-    <string name="home_menu_clear_local">Clear this app\'s contacts</string>
+    <string name="home_menu_clear_data">Clear data</string>
     <string name="home_menu_about">About</string>
 
     <!-- ==================== Dialogs ==================== -->
     <string name="dialog_delete_title">Delete contact</string>
     <string name="dialog_delete_message">This cannot be undone. Are you sure?</string>
-    <string name="dialog_clear_title">Clear contacts</string>
-    <string name="dialog_clear_message">All contacts stored on this device will be deleted and cannot be recovered.</string>
-    <string name="dialog_wipe_all_title">Clear system contacts</string>
-    <plurals name="dialog_wipe_all_count">
-        <item quantity="one">all %1$d contact</item>
-        <item quantity="other">all %1$d contacts</item>
-    </plurals>
-    <string name="dialog_wipe_all_count_any">all contacts</string>
-    <string name="dialog_wipe_all_message">This deletes %1$s currently in your system contacts, including duplicates, contacts without numbers, and contacts you never imported.\n\n· The encrypted copy in this app is untouched, so you can still search and dial\n· This cannot be undone — make sure you have exported a CSV backup\n· Deletions for cloud accounts may sync to the cloud</string>
-    <string name="dialog_wipe_sms_title">Clear system SMS</string>
-    <string name="dialog_wipe_sms_message">This deletes all messages in your phone\'s SMS app.\n\n· The encrypted copy in this app is untouched, so you can still read them\n· This cannot be undone — export a CSV backup first\n· Since Android 4.4 this app must be the default SMS app, otherwise the system will refuse</string>
-    <string name="dialog_clear_sms_title">Clear local SMS copies</string>
-    <string name="dialog_clear_sms_message">All SMS copies stored on this device will be deleted. The original messages in your system are not affected and cannot be recovered.</string>
-    <string name="dialog_wipe_calls_title">Clear system call log</string>
-    <string name="dialog_wipe_calls_message">This attempts to delete every call record on your phone.\n\n· The encrypted copy in this app is untouched\n· This cannot be undone — export a CSV backup first\n· The system usually grants delete permission only to system apps, so a regular app will be refused</string>
-    <string name="dialog_clear_calls_title">Clear local call log copies</string>
-    <string name="dialog_clear_calls_message">All call records stored on this device will be deleted. The original records in your system are not affected and cannot be recovered.</string>
 
     <!-- ==================== Import & cleanup ==================== -->
     <string name="import_title">Import &amp; cleanup</string>
@@ -108,14 +89,9 @@
         <item quantity="one">Export %1$d contact to system</item>
         <item quantity="other">Export %1$d contacts to system</item>
     </plurals>
-    <string name="import_step4_title">Clear system contacts</string>
-    <string name="import_step4_desc">Deletes every contact currently in the system: duplicates, contacts without numbers, and anyone added after you imported. The encrypted copy in this app is kept, so you can still search and dial.</string>
-    <string name="import_reading">Reading system contacts…</string>
-    <string name="import_system_empty">System contacts are already empty</string>
-    <plurals name="import_wipe_count">
-        <item quantity="one">Clear %1$d contact from system</item>
-        <item quantity="other">Clear %1$d contacts from system</item>
-    </plurals>
+    <string name="import_step4_title">Clear data</string>
+    <string name="import_step4_desc">Clearing SMS, call records and contacts all live in the \"Clear data\" page: pick what to clear and whether to clear the system copies or the encrypted copies in this app.</string>
+    <string name="import_step4_action">Go to Clear data</string>
     <string name="import_warning_title">Before you delete</string>
     <string name="import_warning_body">· If your contacts come from a Google or manufacturer cloud account, the sync adapter will push the deletion to the cloud\n· The system \"recycle bin\" usually keeps entries for 30 days — after that they are gone for good\n· Save the CSV backup to your computer or a USB drive first, and double-check it before cleaning up</string>
     <string name="import_local_only">Data stays on this phone</string>
@@ -140,13 +116,11 @@
     <string name="sms_export_csv">Export CSV</string>
     <string name="sms_privacy_hint">Message content is sensitive, so this app reads it only after you grant permission. All data stays on this phone — never uploaded, never networked.</string>
     <string name="sms_section_manage">Manage</string>
+    <string name="sms_action_clear_data">Clear SMS</string>
+    <string name="sms_action_clear_data_desc">Pick SMS on the \"Clear data\" page to clear either the system messages or the encrypted copies here</string>
     <string name="sms_action_export_system">Export to system SMS</string>
     <string name="sms_action_export_system_desc">Write the messages from this app back into your SMS app, deduplicated by content and time</string>
     <string name="sms_action_export_system_desc_need_default">Set this app as the default SMS app first — tap to open system settings</string>
-    <string name="sms_action_wipe_system">Clear system SMS</string>
-    <string name="sms_action_wipe_system_desc">Delete every message in your phone\'s SMS app; the encrypted copy here is kept</string>
-    <string name="sms_action_clear_local">Clear local SMS copies</string>
-    <string name="sms_action_clear_local_desc">Delete the SMS copies stored in this app; the originals in your system are not affected</string>
     <string name="sms_section_backed_up">Backed-up messages</string>
     <string name="sms_list_hint">Tap to expand the full text, long-press a number to call. The list shows the most recently imported first and loads up to 200 entries.</string>
     <string name="sms_empty_none">No messages backed up yet</string>
@@ -176,11 +150,8 @@
     <string name="calllog_export_csv">Export CSV</string>
     <string name="calllog_privacy_hint">Call history is sensitive, so this app reads it only after you grant permission. All data stays on this phone — never uploaded, never networked.</string>
     <string name="calllog_section_manage">Manage</string>
-    <string name="calllog_action_wipe_system">Clear system call log</string>
-    <string name="calllog_action_wipe_system_desc">Delete every call record on your phone; the encrypted copy here is kept</string>
-    <string name="calllog_action_wipe_system_desc_denied">The system grants delete permission only to system apps, so a regular app is refused. Clear them in your built-in Phone app instead.</string>
-    <string name="calllog_action_clear_local">Clear local call log copies</string>
-    <string name="calllog_action_clear_local_desc">Delete the call records stored in this app; the originals in your system are not affected</string>
+    <string name="calllog_action_clear_data">Clear call records</string>
+    <string name="calllog_action_clear_data_desc">Pick call records on the \"Clear data\" page to clear either the system records or the encrypted copies here</string>
     <string name="calllog_section_backed_up">Backed-up call records</string>
     <string name="calllog_list_hint">Tap a number to call it. The list shows the most recently imported first and loads up to 200 entries.</string>
     <string name="calllog_empty_none">No call records backed up yet</string>
@@ -317,7 +288,6 @@
     <string name="toast_added">Contact added</string>
     <string name="toast_saved">Changes saved</string>
     <string name="toast_deleted">Deleted</string>
-    <string name="toast_cleared">Contacts cleared</string>
     <string name="err_read_for_dup">Contacts read permission is required to compare duplicates</string>
     <string name="busy_compare_dup">Comparing duplicate numbers…</string>
     <string name="dup_done_title">Duplicate check complete</string>
@@ -358,20 +328,6 @@
     <string name="import_done_title">Import complete</string>
     <string name="import_failed_title">Import failed</string>
     <string name="err_read_system">Error while reading system contacts</string>
-    <string name="busy_wipe_system">Clearing system contacts…</string>
-    <string name="wipe_failed_title">Clear failed</string>
-    <string name="wipe_denied_message">The system rejected the delete request. Check the contacts write permission.</string>
-    <string name="wipe_done_title">System contacts cleared</string>
-    <plurals name="wipe_deleted">
-        <item quantity="one">Deleted %1$d record in total (including duplicates, contacts without numbers, and anyone added after the import)</item>
-        <item quantity="other">Deleted %1$d records in total (including duplicates, contacts without numbers, and anyone added after the import)</item>
-    </plurals>
-    <string name="wipe_copy_kept">The encrypted copy in this app is untouched, so you can still search and dial</string>
-    <plurals name="wipe_remaining">
-        <item quantity="one">%1$d contact remains undeleted, usually from read-only accounts (such as a corporate directory or the SIM card). Handle it in system settings.</item>
-        <item quantity="other">%1$d contacts remain undeleted, usually from read-only accounts (such as a corporate directory or the SIM card). Handle them in system settings.</item>
-    </plurals>
-    <string name="wipe_cloud_note">If your contacts come from a cloud account, the sync adapter may push the deletion to the cloud.</string>
     <string name="err_empty_export">There are no contacts to export</string>
     <string name="busy_export_backup">Exporting backup…</string>
     <string name="toast_export_failed">Export failed</string>
@@ -403,20 +359,6 @@
     <string name="sms_import_failed_title">SMS import failed</string>
     <string name="err_read_system_sms">Error while reading system SMS</string>
     <string name="err_write_sms">SMS write permission is required</string>
-    <string name="busy_wipe_sms">Clearing system SMS…</string>
-    <string name="sms_wipe_denied_title">The system rejected the delete request</string>
-    <string name="sms_wipe_denied_message">Since Android 4.4, only the default SMS app can delete messages.\n\n· Set this app as the default SMS app and try again\n· Or clear them manually in your SMS app\n\nThe encrypted copy in this app is untouched, so you can still read them.</string>
-    <string name="sms_wipe_done_title">System SMS cleared</string>
-    <plurals name="sms_wipe_deleted">
-        <item quantity="one">Deleted %1$d message in total</item>
-        <item quantity="other">Deleted %1$d messages in total</item>
-    </plurals>
-    <string name="sms_wipe_copy_kept">The encrypted copy in this app is untouched</string>
-    <plurals name="sms_wipe_remaining">
-        <item quantity="one">%1$d message remains (some belong to system accounts and cannot be deleted).</item>
-        <item quantity="other">%1$d messages remain (some belong to system accounts and cannot be deleted).</item>
-    </plurals>
-    <string name="toast_sms_cleared">The SMS copies in this app have been cleared</string>
     <string name="err_no_sms">There are no messages in this app yet</string>
     <string name="busy_export_sms">Exporting SMS to the system…</string>
     <string name="sms_export_done_title">SMS export complete</string>
@@ -462,16 +404,6 @@
     </plurals>
     <string name="call_import_encrypted">Written to the local database with AES-256-GCM using a session key.</string>
     <string name="err_read_system_calls">Error while reading the call log</string>
-    <string name="err_calllog_not_allowed">The system does not allow regular apps to delete call records</string>
-    <string name="busy_wipe_calllog">Clearing system call log…</string>
-    <string name="call_wipe_denied_title">The system rejected the delete request</string>
-    <string name="call_wipe_denied_message">Android grants call log delete permission to system apps only, so a regular app cannot clear it.\n\n· Delete the records manually in your phone\'s built-in Phone app\n· Or go to Settings → Apps → Phone → Clear data\n\nThe encrypted copy in this app is untouched.</string>
-    <string name="call_wipe_done_title">System call log cleared</string>
-    <plurals name="call_wipe_deleted">
-        <item quantity="one">Deleted %1$d record in total. The encrypted copy in this app is untouched.</item>
-        <item quantity="other">Deleted %1$d records in total. The encrypted copy in this app is untouched.</item>
-    </plurals>
-    <string name="toast_call_cleared">The call record copies in this app have been cleared</string>
     <string name="err_no_calls_export">There are no call records to export</string>
     <string name="busy_export_calls_backup">Exporting call log backup…</string>
     <string name="call_backup_done_title">Call log backup exported</string>
@@ -515,6 +447,41 @@
         <item quantity="other">%1$d have no system ID, so cleanup falls back to deleting everything</item>
     </plurals>
     <string name="import_desc_encrypted">Written to the local database with AES-256-GCM encryption.</string>
+
+
+    <!-- ==================== Clear data ==================== -->
+    <string name="clear_data_title">Clear data</string>
+    <string name="clear_data_desc">Deleting SMS, call records and contacts all happens here. Tick what to clear, choose which copy, then type the confirmation word to run it.</string>
+    <string name="clear_data_section_content">What to clear</string>
+    <string name="clear_data_section_direction">Which copy to clear</string>
+    <string name="clear_data_target_contacts">Contacts</string>
+    <string name="clear_data_target_sms">SMS</string>
+    <string name="clear_data_target_calls">Call records</string>
+    <string name="clear_data_target_contacts_desc">System %1$d · This app %2$d</string>
+    <string name="clear_data_target_sms_desc">System %1$d · This app %2$d</string>
+    <string name="clear_data_target_calls_desc">System %1$d · This app %2$d</string>
+    <string name="clear_data_direction_system">Clear the system copies</string>
+    <string name="clear_data_direction_system_desc">Delete the original data in your phone\'s apps; the encrypted copy in this app is kept</string>
+    <string name="clear_data_direction_local">Clear this app\'s copies</string>
+    <string name="clear_data_direction_local_desc">Only delete the encrypted copies stored here; the originals in your phone are not affected</string>
+    <string name="clear_data_confirm_label">Type \"%1$s\" to confirm</string>
+    <string name="clear_data_confirm_keyword">CLEAR</string>
+    <string name="clear_data_confirm_mismatch">That confirmation word is not right \u2014 type \"%1$s\"</string>
+    <string name="clear_data_action">Clear now</string>
+    <string name="clear_data_need_select">Tick at least one thing to clear</string>
+    <string name="clear_data_warning_title">Before you delete</string>
+    <string name="clear_data_warning_body">\u00b7 Clearing cannot be undone \u2014 make sure you have exported a CSV backup\n\u00b7 If your contacts come from a cloud account, deletions may sync to the cloud\n\u00b7 Deleting SMS requires this app to be the default SMS app, otherwise the system refuses\n\u00b7 Deleting call records is granted to system apps only, so a regular app is refused</string>
+    <string name="clear_data_hint">All clearing happens under \"Clear data\" in the top-right menu</string>
+    <string name="busy_clear_data">Clearing\u2026</string>
+    <string name="clear_data_done_title">Done</string>
+    <string name="clear_data_result_deleted">%1$s: deleted %2$d</string>
+    <string name="clear_data_result_remaining">, %1$d left in the system</string>
+    <string name="clear_data_result_denied">%1$s: the system refused the delete request</string>
+    <string name="clear_data_hint_contacts">If the contacts come from a cloud account, deleting them may sync back to the cloud.</string>
+    <string name="clear_data_hint_sms">To wipe every message, this app needs to be the default SMS app. On dual-SIM phones, messages on the other SIM sometimes cannot be deleted. MMS messages are out of scope.</string>
+    <string name="clear_data_hint_calls">Deleting call logs is restricted to system apps, so a normal app cannot do it.</string>
+    <string name="clear_data_local_kept">The encrypted copies in this app were not affected.</string>
+    <string name="clear_data_system_kept">The encrypted copies in this app are kept, so you can still search and dial.</string>
 
     <!-- ==================== CSV headers ==================== -->
     <string name="csv_contacts_header">Name,Mobile,Alternate,Group,Tags,Note,Favorite</string>

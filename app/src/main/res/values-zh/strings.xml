@@ -5,8 +5,8 @@
     为什么需要这个目录？不能只靠 values/ 里的默认文案：
 
     Android 7.0+ 的资源解析会沿「用户的语言列表」逐个尝试。中文手机的语言
-    列表通常是 [zh-CN, en-US]，于是查找顺序变成：
-        zh-CN → zh-rCN(无) → zh(本文件，命中) → 拿到简体中文
+    列表通常是 zh-CN、en-US，于是查找顺序变成：
+        zh-CN → zh-rCN 无 → zh 命中（本文件）→ 拿到简体中文
     如果缺少本目录，zh 匹配失败后会继续往下试 en-US，而 values-en/ 存在，
     系统就会命中英文 —— 中文系统反而显示英文。
     官方说明见 Android 文档「Language and locale resolution overview」。
@@ -23,7 +23,6 @@
 
     <!-- ==================== 通用动作 ==================== -->
     <string name="action_cancel">取消</string>
-    <string name="action_confirm_clear">确认清空</string>
     <string name="action_delete">删除</string>
     <string name="action_save">保存</string>
     <string name="action_ok">知道了</string>
@@ -38,7 +37,6 @@
     <string name="action_load_more">加载更多</string>
     <string name="action_importing">导入中…</string>
     <string name="action_view">查看</string>
-    <string name="action_backed_up_delete">我已备份，全部删除</string>
     <string name="action_add_contact">新增联系人</string>
 
     <!-- ==================== 联系人标签 / 分组 ==================== -->
@@ -73,28 +71,12 @@
     <string name="home_menu_calllog">通话记录备份</string>
     <string name="home_menu_callid">来电识别悬浮窗</string>
     <string name="home_menu_duplicates">检测重复联系人</string>
-    <string name="home_menu_clear_local">清空本应用通讯录</string>
+    <string name="home_menu_clear_data">清空数据</string>
     <string name="home_menu_about">关于</string>
 
     <!-- ==================== 弹窗 ==================== -->
     <string name="dialog_delete_title">删除联系人</string>
     <string name="dialog_delete_message">删除后无法恢复，确定继续吗？</string>
-    <string name="dialog_clear_title">清空通讯录</string>
-    <string name="dialog_clear_message">将删除本机保存的全部联系人，且无法恢复。</string>
-    <string name="dialog_wipe_all_title">清空系统通讯录</string>
-    <plurals name="dialog_wipe_all_count">
-        <item quantity="other">全部 %1$d 位联系人</item>
-    </plurals>
-    <string name="dialog_wipe_all_count_any">全部联系人</string>
-    <string name="dialog_wipe_all_message">会删除系统通讯录里当前的%1$s，包括重复的、没有号码的、以及从没导入过的。\n\n· 本应用内的加密副本不受影响，仍然可以查和拨号\n· 此操作不可撤销，请确认已经导出 CSV 备份\n· 云账户联系人的删除可能同步到云端</string>
-    <string name="dialog_wipe_sms_title">清空系统短信</string>
-    <string name="dialog_wipe_sms_message">会删除手机短信应用里的全部短信。\n\n· 本应用内的加密副本不受影响，仍然可以查看\n· 此操作不可撤销，建议先导出 CSV 备份\n· Android 4.4 起需本应用是默认短信应用才能删掉，否则系统会拒绝</string>
-    <string name="dialog_clear_sms_title">清空本应用短信副本</string>
-    <string name="dialog_clear_sms_message">将删除本机保存的全部短信副本，系统里的原短信不受影响，且无法恢复。</string>
-    <string name="dialog_wipe_calls_title">清空系统通话记录</string>
-    <string name="dialog_wipe_calls_message">会尝试删除手机里的全部通话记录。\n\n· 本应用内的加密副本不受影响\n· 此操作不可撤销，建议先导出 CSV 备份\n· 系统通常只把删除权限授予系统应用，普通 App 会被拒绝</string>
-    <string name="dialog_clear_calls_title">清空本应用通话记录副本</string>
-    <string name="dialog_clear_calls_message">将删除本机保存的全部通话记录副本，系统里的原记录不受影响，且无法恢复。</string>
 
     <!-- ==================== 导入与清理 ==================== -->
     <string name="import_title">导入与清理</string>
@@ -120,13 +102,9 @@
     <plurals name="import_export_count">
         <item quantity="other">导出 %1$d 人到系统</item>
     </plurals>
-    <string name="import_step4_title">清空系统通讯录</string>
-    <string name="import_step4_desc">按系统当前的全部联系人删除：重复的、没有号码的、导入之后才新增的，一次清干净。本应用内的加密副本会保留，仍然可以查和拨号。</string>
-    <string name="import_reading">正在读取系统通讯录…</string>
-    <string name="import_system_empty">系统通讯录已是空的</string>
-    <plurals name="import_wipe_count">
-        <item quantity="other">清空系统 %1$d 人</item>
-    </plurals>
+    <string name="import_step4_title">清空数据</string>
+    <string name="import_step4_desc">短信、通话记录、通讯录的清空都收在「清空数据」这一页：可以多选要清空的内容，并选择清空系统里的还是本应用里的。</string>
+    <string name="import_step4_action">前往清空数据</string>
     <string name="import_warning_title">删除前请确认</string>
     <string name="import_warning_body">· 若联系人来自 Google / 手机厂商云账号，删除会被同步适配器推送到云端\n· 系统「回收站」通常只保留 30 天，超时后不可恢复\n· 建议先把 CSV 备份存到电脑或 U 盘，确认无误后再清理</string>
     <string name="import_local_only">数据仅存本机</string>
@@ -152,10 +130,8 @@
     <string name="sms_action_export_system">导出到系统短信</string>
     <string name="sms_action_export_system_desc">把本应用里的短信写回手机短信应用，按内容+时间去重</string>
     <string name="sms_action_export_system_desc_need_default">需要先设为默认短信应用，点击前往系统设置</string>
-    <string name="sms_action_wipe_system">清空系统短信</string>
-    <string name="sms_action_wipe_system_desc">删除手机短信应用里的全部短信，本应用的加密副本保留</string>
-    <string name="sms_action_clear_local">清空本应用短信副本</string>
-    <string name="sms_action_clear_local_desc">删除本应用保存的短信副本，系统里的原短信不受影响</string>
+    <string name="sms_action_clear_data">清空短信</string>
+    <string name="sms_action_clear_data_desc">在「清空数据」页里选短信，可选择清空系统短信或本应用的加密副本</string>
     <string name="sms_section_backed_up">已备份的短信</string>
     <string name="sms_list_hint">点击可展开全文，长按号码可直接拨号。列表按导入顺序倒序展示，最多加载 200 条。</string>
     <string name="sms_empty_none">还没有备份任何短信</string>
@@ -183,11 +159,8 @@
     <string name="calllog_export_csv">导出 CSV</string>
     <string name="calllog_privacy_hint">通话记录属于敏感数据，只有你授权后本应用才会读取。所有数据仅存在这台手机上，不上传、不联网。</string>
     <string name="calllog_section_manage">管理</string>
-    <string name="calllog_action_wipe_system">清空系统通话记录</string>
-    <string name="calllog_action_wipe_system_desc">删除手机里的全部通话记录，本应用的加密副本保留</string>
-    <string name="calllog_action_wipe_system_desc_denied">系统只把删除权限授予系统应用，普通 App 会被拒绝；可在自带电话 App 里手动清</string>
-    <string name="calllog_action_clear_local">清空本应用通话记录副本</string>
-    <string name="calllog_action_clear_local_desc">删除本应用保存的通话记录副本，系统里的原记录不受影响</string>
+    <string name="calllog_action_clear_data">清空通话记录</string>
+    <string name="calllog_action_clear_data_desc">在「清空数据」页里选通话记录，可选择清空系统记录或本应用的加密副本</string>
     <string name="calllog_section_backed_up">已备份的通话记录</string>
     <string name="calllog_list_hint">点击号码可直接拨号。列表按导入顺序倒序展示，最多加载 200 条。</string>
     <string name="calllog_empty_none">还没有备份任何通话记录</string>
@@ -321,7 +294,6 @@
     <string name="toast_added">已添加联系人</string>
     <string name="toast_saved">已保存修改</string>
     <string name="toast_deleted">已删除</string>
-    <string name="toast_cleared">通讯录已清空</string>
     <string name="err_read_for_dup">需要通讯录读取权限才能比对重复</string>
     <string name="busy_compare_dup">正在比对重复号码…</string>
     <string name="dup_done_title">重复检测完成</string>
@@ -357,18 +329,6 @@
     <string name="import_done_title">导入完成</string>
     <string name="import_failed_title">导入失败</string>
     <string name="err_read_system">读取系统通讯录时出错</string>
-    <string name="busy_wipe_system">正在清空系统通讯录…</string>
-    <string name="wipe_failed_title">清空失败</string>
-    <string name="wipe_denied_message">系统拒绝了删除请求，请检查通讯录写入权限。</string>
-    <string name="wipe_done_title">系统通讯录已清空</string>
-    <plurals name="wipe_deleted">
-        <item quantity="other">共删除 %1$d 条记录（含重复的、没有号码的、导入后新增的）</item>
-    </plurals>
-    <string name="wipe_copy_kept">本应用内的加密副本不受影响，仍然可以查和拨号</string>
-    <plurals name="wipe_remaining">
-        <item quantity="other">系统里仍有 %1$d 人没删掉，通常来自只读账户（如企业目录、SIM 卡），需要到系统设置里手动处理。</item>
-    </plurals>
-    <string name="wipe_cloud_note">若联系人来自云端账户，同步适配器可能把删除同步到云端。</string>
     <string name="err_empty_export">通讯录为空，无需导出</string>
     <string name="busy_export_backup">正在导出备份…</string>
     <string name="toast_export_failed">导出失败</string>
@@ -392,18 +352,6 @@
     <string name="sms_import_failed_title">短信导入失败</string>
     <string name="err_read_system_sms">读取系统短信时出错</string>
     <string name="err_write_sms">需要短信写入权限</string>
-    <string name="busy_wipe_sms">正在清空系统短信…</string>
-    <string name="sms_wipe_denied_title">系统拒绝了删除请求</string>
-    <string name="sms_wipe_denied_message">Android 4.4 起，只有「默认短信应用」才能删除短信。\n\n· 可以把本应用设为默认短信应用后再试\n· 或者在系统短信应用里手动清空\n\n本应用内的加密副本不受影响，仍然可以查看。</string>
-    <string name="sms_wipe_done_title">系统短信已清空</string>
-    <plurals name="sms_wipe_deleted">
-        <item quantity="other">共删除 %1$d 条</item>
-    </plurals>
-    <string name="sms_wipe_copy_kept">本应用内的加密副本不受影响</string>
-    <plurals name="sms_wipe_remaining">
-        <item quantity="other">系统里仍剩 %1$d 条（部分短信属于系统账户，无法删除）。</item>
-    </plurals>
-    <string name="toast_sms_cleared">本应用的短信副本已清空</string>
     <string name="err_no_sms">本应用里还没有短信</string>
     <string name="busy_export_sms">正在导出短信到系统…</string>
     <string name="sms_export_done_title">短信导出完成</string>
@@ -438,15 +386,6 @@
     </plurals>
     <string name="call_import_encrypted">已用会话密钥 AES-256-GCM 加密写入本机数据库。</string>
     <string name="err_read_system_calls">读取通话记录时出错</string>
-    <string name="err_calllog_not_allowed">系统不允许普通应用删除通话记录</string>
-    <string name="busy_wipe_calllog">正在清空系统通话记录…</string>
-    <string name="call_wipe_denied_title">系统拒绝了删除请求</string>
-    <string name="call_wipe_denied_message">Android 对通话记录的删除权限只授予系统应用，普通 App 无法清空。\n\n· 可以在手机自带「电话」App 里手动删除\n· 或到 设置 → 应用 → 电话 → 清除数据\n\n本应用内的加密副本不受影响。</string>
-    <string name="call_wipe_done_title">系统通话记录已清空</string>
-    <plurals name="call_wipe_deleted">
-        <item quantity="other">共删除 %1$d 条。本应用内的加密副本不受影响。</item>
-    </plurals>
-    <string name="toast_call_cleared">本应用的通话记录副本已清空</string>
     <string name="err_no_calls_export">没有通话记录可导出</string>
     <string name="busy_export_calls_backup">正在导出通话记录备份…</string>
     <string name="call_backup_done_title">通话记录备份已导出</string>
@@ -478,6 +417,41 @@
         <item quantity="other">有 %1$d 人拿不到系统 ID，清理时按全量删除兜底</item>
     </plurals>
     <string name="import_desc_encrypted">已用 AES-256-GCM 加密写入本机数据库。</string>
+
+
+    <!-- ==================== 清空数据 ==================== -->
+    <string name="clear_data_title">清空数据</string>
+    <string name="clear_data_desc">短信、通话记录、通讯录的删除都收在这里。勾选要清空的内容，再选择清空哪一份，最后输入确认词才会执行。</string>
+    <string name="clear_data_section_content">要清空哪些内容</string>
+    <string name="clear_data_section_direction">清空哪一份</string>
+    <string name="clear_data_target_contacts">通讯录</string>
+    <string name="clear_data_target_sms">短信</string>
+    <string name="clear_data_target_calls">通话记录</string>
+    <string name="clear_data_target_contacts_desc">系统 %1$d 人 · 本应用 %2$d 人</string>
+    <string name="clear_data_target_sms_desc">系统 %1$d 条 · 本应用 %2$d 条</string>
+    <string name="clear_data_target_calls_desc">系统 %1$d 条 · 本应用 %2$d 条</string>
+    <string name="clear_data_direction_system">清空系统里的</string>
+    <string name="clear_data_direction_system_desc">删除手机系统应用中的原始数据，本应用的加密副本保留</string>
+    <string name="clear_data_direction_local">清空本应用里的</string>
+    <string name="clear_data_direction_local_desc">只删除本应用保存的加密副本，手机系统里的原始数据不受影响</string>
+    <string name="clear_data_confirm_label">输入「%1$s」以确认</string>
+    <string name="clear_data_confirm_keyword">确认</string>
+    <string name="clear_data_confirm_mismatch">输入的确认词不对，需要输入「%1$s」</string>
+    <string name="clear_data_action">立即清空</string>
+    <string name="clear_data_need_select">请至少勾选一项要清空的内容</string>
+    <string name="clear_data_warning_title">删除前请确认</string>
+    <string name="clear_data_warning_body">· 清空不可撤销，请确认已经导出 CSV 备份\n· 通讯录若来自云端账户，删除可能同步到云端\n· 短信的删除需要本应用是默认短信应用，否则系统会拒绝\n· 通话记录的删除权限只授予系统应用，普通 App 会被拒绝</string>
+    <string name="clear_data_hint">所有清空操作都在首页右上角菜单的「清空数据」里</string>
+    <string name="busy_clear_data">正在清空…</string>
+    <string name="clear_data_done_title">清空完成</string>
+    <string name="clear_data_result_deleted">%1$s：已删除 %2$d 条</string>
+    <string name="clear_data_result_remaining">，系统里还剩 %1$d 条</string>
+    <string name="clear_data_result_denied">%1$s：系统拒绝了删除请求，未能清空</string>
+    <string name="clear_data_hint_contacts">通讯录若来自云端账户，删除可能同步到云端。</string>
+    <string name="clear_data_hint_sms">短信要删干净，本应用需要是默认短信应用；双卡机上另一张卡的短信有时也删不掉。彩信不在清理范围内。</string>
+    <string name="clear_data_hint_calls">通话记录的删除权限只授予系统应用，普通 App 无法删除。</string>
+    <string name="clear_data_local_kept">本应用内的加密副本没有受到影响。</string>
+    <string name="clear_data_system_kept">本应用内的加密副本保留，仍然可以查和拨号。</string>
 
     <!-- ==================== CSV 表头 ==================== -->
     <string name="csv_contacts_header">姓名,手机号,备用号码,分组,标签,备注,收藏</string>

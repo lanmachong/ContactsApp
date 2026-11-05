@@ -11,8 +11,8 @@ android {
         applicationId = "com.wb.contacts"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.4.1"
+        versionCode = 9
+        versionName = "1.5.0"
 
         // 只保留中文与英文两种语言资源：
         // 1) 本应用只做了中英双语，其余语言一律回落到默认的中文表
