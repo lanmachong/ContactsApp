@@ -1,6 +1,7 @@
 package com.wb.contacts.system
 
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.provider.Telephony
@@ -12,6 +13,9 @@ import com.wb.contacts.data.SmsMessage
  * 多数机型会静默失败，这里会如实回报删除条数）
  */
 object SystemSms {
+
+    /** 批量写回每批条数：一次 Binder 调用传一整批，跨进程次数降两个数量级 */
+    private const val WRITE_BATCH_SIZE = 200
 
     /** 系统里的一条短信 */
     data class SysSms(
@@ -296,44 +300,116 @@ object SystemSms {
         var created = 0
         var skippedExisting = 0
         var failed = 0
+        var handled = 0   // 本页已处理条数，保持调用方的进度口径
 
-        for ((index, msg) in messages.withIndex()) {
-            val key = keyOf(msg.address, msg.body, msg.date)
-            if (key in existing) {
-                skippedExisting++
-                if ((index + 1) % 20 == 0 || index == messages.lastIndex) onProgress(index + 1)
-                continue
+        // 逐条 insert + 逐条回读时，每条要两次跨进程 Binder 往返，实测只有 40 多条/秒。
+        // 改成「一批一次 bulkInsert + 一批一次回读校验」：Binder 次数从 2N 降到约 N/200。
+        messages.chunked(WRITE_BATCH_SIZE).forEach { chunk ->
+            val batchStart = handled
+            val pending = ArrayList<PendingWrite>(chunk.size)
+            chunk.forEach { msg ->
+                val key = keyOf(msg.address, msg.body, msg.date)
+                if (key in existing) skippedExisting++
+                else pending.add(PendingWrite(key, msg, buildValues(msg, threads)))
             }
-            val values = android.content.ContentValues().apply {
-                put(Telephony.Sms.ADDRESS, msg.address)
-                put(Telephony.Sms.BODY, msg.body)
-                put(Telephony.Sms.DATE, msg.date)
-                put(Telephony.Sms.TYPE, msg.type)
-                put(Telephony.Sms.READ, if (msg.read) 1 else 0)
-                // 会话 id 只在系统里**确实还有**这个号码的会话时才写。
-                // 早前直接沿用导入时记下的旧 id，用户清空过系统短信后那些会话
-                // 已经不存在了，短信就会挂在一个"幽灵会话"上 —— 会话列表里根本不显示。
-                // 查不到就干脆不写这个字段，让系统按号码自己归组。
-                threads[normalizeAddress(msg.address)]?.let { put(Telephony.Sms.THREAD_ID, it) }
-                // 双卡机：带上所属订阅，否则短信会落到另一张卡的分组里
-                if (msg.subId > 0) put(Telephony.Sms.SUBSCRIPTION_ID, msg.subId)
-            }
-            val uri = runCatching {
-                resolver.insert(Telephony.Sms.CONTENT_URI, values)
-            }.getOrNull()
+            handled += chunk.size
+            onProgress(batchStart + chunk.size / 2)
 
-            when {
-                uri == null -> failed++
-                // insert 返回了 Uri 也不等于真写进去了，回读确认一次
-                !verifyInserted(context, uri, msg) -> failed++
-                else -> {
-                    existing.add(key)
-                    created++
+            if (pending.isNotEmpty()) {
+                // 有些 ROM 的 SmsProvider 不实现 bulkInsert，默认实现会逐条 insert；
+                // 也有直接抛异常 / 返回 0 的。无论哪种，后面都会用一次查询确认真实落库情况。
+                runCatching {
+                    resolver.bulkInsert(
+                        Telephony.Sms.CONTENT_URI,
+                        pending.map { it.values }.toTypedArray()
+                    )
+                }
+                // 一次 query 拿回本批日期范围内所有短信的指纹，替代 N 次单条回读。
+                // 先查再决定是否逐条兜底，绝不会因为 bulkInsert 返回值不可信而重复插入。
+                val landed = landedKeys(context, pending)
+                pending.forEach { item ->
+                    val ok = item.key in landed || insertOneVerified(context, item)
+                    if (ok) {
+                        existing.add(item.key)
+                        created++
+                    } else {
+                        failed++
+                    }
                 }
             }
-            if ((index + 1) % 20 == 0 || index == messages.lastIndex) onProgress(index + 1)
+            onProgress(handled)
         }
         return ExportSummary(created, skippedExisting, failed)
+    }
+
+    private data class PendingWrite(
+        val key: String,
+        val msg: SmsMessage,
+        val values: ContentValues
+    )
+
+    private fun buildValues(msg: SmsMessage, threads: Map<String, Long>): ContentValues =
+        ContentValues().apply {
+            put(Telephony.Sms.ADDRESS, msg.address)
+            put(Telephony.Sms.BODY, msg.body)
+            put(Telephony.Sms.DATE, msg.date)
+            put(Telephony.Sms.TYPE, msg.type)
+            put(Telephony.Sms.READ, if (msg.read) 1 else 0)
+            // 会话 id 只在系统里**确实还有**这个号码的会话时才写。
+            // 早前直接沿用导入时记下的旧 id，用户清空过系统短信后那些会话
+            // 已经不存在了，短信就会挂在一个「幽灵会话」上 —— 会话列表里根本不显示。
+            // 查不到就干脆不写这个字段，让系统按号码自己归组。
+            threads[normalizeAddress(msg.address)]?.let { put(Telephony.Sms.THREAD_ID, it) }
+            // 双卡机：带上所属订阅，否则短信会落到另一张卡的分组里
+            if (msg.subId > 0) put(Telephony.Sms.SUBSCRIPTION_ID, msg.subId)
+        }
+
+    /**
+     * 批量回读校验：一次 query 取回本批日期范围内的短信，组成指纹集合。
+     *
+     * 不用 `_id` 是因为 bulkInsert 不返回每条的 Uri，且部分 ROM 会复用 id；
+     * 用日期范围最稳，最多扫一遍这一段日期的记录，仍然是**一次**跨进程调用。
+     */
+    private fun landedKeys(context: Context, pending: List<PendingWrite>): Set<String> {
+        val minDate = pending.minOf { it.msg.date }
+        val maxDate = pending.maxOf { it.msg.date }
+        val found = HashSet<String>(pending.size * 2)
+        runCatching {
+            context.contentResolver.query(
+                Telephony.Sms.CONTENT_URI,
+                arrayOf(
+                    Telephony.Sms.ADDRESS,
+                    Telephony.Sms.BODY,
+                    Telephony.Sms.DATE
+                ),
+                "${Telephony.Sms.DATE} >= ? AND ${Telephony.Sms.DATE} <= ?",
+                arrayOf(minDate.toString(), maxDate.toString()),
+                null
+            )?.use { c ->
+                val addrIdx = c.getColumnIndex(Telephony.Sms.ADDRESS)
+                val bodyIdx = c.getColumnIndex(Telephony.Sms.BODY)
+                val dateIdx = c.getColumnIndex(Telephony.Sms.DATE)
+                if (addrIdx < 0 || bodyIdx < 0 || dateIdx < 0) return@use
+                while (c.moveToNext()) {
+                    found.add(
+                        keyOf(
+                            c.getString(addrIdx).orEmpty(),
+                            c.getString(bodyIdx).orEmpty(),
+                            c.getLong(dateIdx)
+                        )
+                    )
+                }
+            }
+        }
+        return found
+    }
+
+    /** 批量没落库的单条，退回逐条 insert + 回读，保证不丢数据 */
+    private fun insertOneVerified(context: Context, item: PendingWrite): Boolean {
+        val uri = runCatching {
+            context.contentResolver.insert(Telephony.Sms.CONTENT_URI, item.values)
+        }.getOrNull() ?: return false
+        return verifyInserted(context, uri, item.msg)
     }
 
     /**
@@ -422,8 +498,12 @@ object SystemSms {
         return map
     }
 
+    /**
+     * 短信指纹。地址统一 trim：系统库里可能存成带空格的号码，而本应用导入时
+     * 已经 trim 过，两边口径不一致会把同一条短信判定成两条、反复写回。
+     */
     private fun keyOf(address: String, body: String, date: Long): String =
-        "$address|$body|$date"
+        "${address.trim()}|$body|$date"
 
     /**
      * 号码归一化：只保留数字，并去掉国际区号前缀。

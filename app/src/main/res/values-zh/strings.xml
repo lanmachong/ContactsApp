@@ -562,7 +562,7 @@
     <string name="busy_overlay_estimating">正在估算剩余时间…</string>
     <string name="busy_overlay_eta_overdue">已超出预估，仍在处理，请继续等待</string>
     <string name="busy_overlay_eta_note">时间预估仅供参考，数据量大或系统繁忙时会延长</string>
-    <string name="busy_overlay_no_close">请勿关闭本软件、切到后台或强制停止，否则正在写入的数据可能中断</string>
+    <string name="busy_overlay_no_close">处理时屏幕保持常亮；熄屏或锁屏后仍会后台继续，通知栏可看进度。请勿强制停止本软件或清除后台，否则写入可能中断</string>
     <string name="busy_overlay_rate">处理速度 约 %1$d 条/秒</string>
     <string name="busy_overlay_eta_done">即将完成…</string>
 
@@ -587,5 +587,13 @@
 
     <string name="about_update_v1_8_6">v1.8.6</string>
     <string name="about_update_v1_8_6_desc">备份、还原、清空的进度改为按真实条数逐条上报，不再一直显示 0/1；补上百分比、实时处理速度，剩余时间改按最近几秒的实际速率估算，批量加密写入单独计进度</string>
+
+    <string name="work_notify_channel">后台处理进度</string>
+    <string name="work_notify_title">正在处理数据</string>
+    <string name="work_notify_running">正在准备数据，请勿关闭软件…</string>
+    <string name="work_notify_progress">已处理 %1$d / %2$d</string>
+
+    <string name="about_update_v1_8_7">v1.8.7</string>
+    <string name="about_update_v1_8_7_desc">备份、还原、清空改为前台服务保活并持有 CPU 锁，熄屏或锁屏后仍可继续写入，通知栏实时显示进度；短信写回改为批量插入与批量回读校验，通讯录导入改为并发加密加单事务写入，大批量处理不再逐条串行</string>
 
 </resources>

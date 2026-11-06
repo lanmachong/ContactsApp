@@ -7,7 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.wb.contacts.ContactsApplication
 import com.wb.contacts.R
 import com.wb.contacts.data.ArchiveRepository
@@ -23,7 +22,10 @@ import com.wb.contacts.util.Labels
 import com.wb.contacts.util.PermissionUtil
 import com.wb.contacts.util.PhoneText
 import com.wb.contacts.util.PinyinUtil
+import com.wb.contacts.work.WorkGuardService
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -121,6 +123,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     /** ViewModel 没有重组的机会，文案统一从这里取当前语言的字符串 */
     private val context: Context get() = getApplication<Application>()
 
+    /** 耗时任务跑在应用级协程域：锁屏 / Activity 被回收也不会被取消 */
+    private val workScope: CoroutineScope =
+        (app as? ContactsApplication)?.workScope
+            ?: CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
     val contacts: StateFlow<List<Contact>> = _contacts.asStateFlow()
 
@@ -172,46 +179,40 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     var systemScanned by mutableStateOf(false)
         private set
     /**
-     * 是否有耗时任务在执行。
-     *
-     * 置为 true 时自动重置计时与进度 —— 这样所有调用点只要写 `busy = true`
-     * 就能拿到干净的起始状态，不用各自记得清字段。
+     * 是否有耗时任务在执行。状态放在应用级 [WorkState] 里：
+     * 锁屏后 Activity 被回收、重新创建 ViewModel 时仍能读到 busy=true，
+     * 全屏遮罩会继续挡住界面，不会在后台写入还没结束时又让人点别的。
      */
-    private var _busy by mutableStateOf(false)
     var busy: Boolean
-        get() = _busy
-        private set(value) {
-            if (_busy == value) return
-            _busy = value
-            if (value) {
-                busyStartedAt = System.currentTimeMillis()
-                busyDone = 0
-                busyTotal = 0
-                busyPhase = ""
-                busyEstimateSeconds = 0
-            }
-        }
+        get() = WorkState.busy
+        private set(value) { WorkState.busy = value }
 
-    var busyText by mutableStateOf("")
-        private set
+    var busyText: String
+        get() = WorkState.busyText
+        private set(value) { WorkState.busyText = value }
 
     /** 当前阶段说明，例如「正在加密写入短信…」，会实时变化，让用户知道没卡死 */
-    var busyPhase by mutableStateOf("")
-        private set
+    var busyPhase: String
+        get() = WorkState.busyPhase
+        private set(value) { WorkState.busyPhase = value }
 
     /** 已完成条数；total <= 0 表示这项任务暂时拿不到总量 */
-    var busyDone by mutableStateOf(0)
-        private set
-    var busyTotal by mutableStateOf(0)
-        private set
+    var busyDone: Int
+        get() = WorkState.busyDone
+        private set(value) { WorkState.busyDone = value }
+    var busyTotal: Int
+        get() = WorkState.busyTotal
+        private set(value) { WorkState.busyTotal = value }
 
     /** 任务开始时刻（毫秒），UI 用它算已用时间与剩余时间 */
-    var busyStartedAt by mutableStateOf(0L)
-        private set
+    var busyStartedAt: Long
+        get() = WorkState.busyStartedAt
+        private set(value) { WorkState.busyStartedAt = value }
 
     /** 拿不到实测进度时用的粗估总时长（秒），仅用于兜底倒计时 */
-    var busyEstimateSeconds by mutableStateOf(0)
-        private set
+    var busyEstimateSeconds: Int
+        get() = WorkState.busyEstimateSeconds
+        private set(value) { WorkState.busyEstimateSeconds = value }
 
     var resultDialog by mutableStateOf<ResultDialog?>(null)
         private set
@@ -246,7 +247,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        workScope.launch {
             val all = repo.getAll()
             _contacts.value = all
             _groups.value = all.map { it.groupName }.filter { it.isNotBlank() }.distinct().sorted()
@@ -343,7 +344,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             return false
         }
         val now = System.currentTimeMillis()
-        viewModelScope.launch {
+        workScope.launch {
             // 分组统一存内部键，避免切换语言后新旧数据错位
             val normalized = draft.copy(
                 name = name,
@@ -365,7 +366,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleFavorite(contact: Contact) {
-        viewModelScope.launch {
+        workScope.launch {
             repo.update(
                 contact.copy(favorite = !contact.favorite, updatedAt = System.currentTimeMillis())
             )
@@ -384,7 +385,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     fun confirmDelete() {
         val id = pendingDeleteId ?: return
         pendingDeleteId = null
-        viewModelScope.launch {
+        workScope.launch {
             repo.delete(id)
             refresh()
             screen = Screen.Home
@@ -421,9 +422,12 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         busy = true   // setter 会清零进度字段，所以下面三个必须放在它之后
         busyPhase = context.getString(phaseRes)
         busyEstimateSeconds = estimateSeconds
+        // 抬到前台优先级 + 持 CPU 锁：熄屏后任务继续跑，Activity 被回收也不中断
+        WorkGuardService.start(context)
     }
 
     private fun endBusy() {
+        WorkGuardService.stop(context)
         busy = false
         busyText = ""
         busyPhase = ""
@@ -437,6 +441,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         busyDone = done
         busyTotal = total
         if (phase != null) busyPhase = phase
+        // 同步到常驻通知，锁屏时也能看到进度还在动（内部按秒节流）
+        WorkGuardService.update(done, total, busyPhase)
     }
 
     /**
@@ -493,7 +499,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (busy) return
         startBusy(R.string.busy_compare_dup, R.string.busy_phase_prepare, 10)
-        viewModelScope.launch {
+        workScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     applyDuplicateTags { done, total -> reportBusy(done, total) }
@@ -578,7 +584,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             systemScanned = false
             return
         }
-        viewModelScope.launch {
+        workScope.launch {
             val count = withContext(Dispatchers.IO) {
                 runCatching { SystemContacts.readAll(context).size }.getOrDefault(0)
             }
@@ -603,7 +609,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (busy) return
         startBusy(R.string.busy_read_contacts, R.string.busy_phase_read_contacts, 15)
-        viewModelScope.launch {
+        workScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     val library = repo.getAll()
@@ -642,12 +648,18 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                     // —— 第二步：逐人比对，新面孔插入，已存在的按系统内容补全 ——
                     val sys = SystemContacts.readAll(context)
                     val contactTotal = sys.size
+                    // 进度分两段：前半逐人比对，后半并发加密批量写库，
+                    // 别让数字冲到 99% 之后还有一段没动静的写入。
+                    val importTotal = contactTotal * 2
                     reportBusy(
-                        0, contactTotal,
+                        0, importTotal,
                         context.getString(R.string.busy_phase_import_contacts)
                     )
                     val now = System.currentTimeMillis()
-                    var imported = 0
+                    // 新面孔先攒着。以前逐条 insert = 每条一次 Keystore 加密 + 一次独立事务，
+                    // 几百条能跑十几秒；改成整批并发加密 + 单事务写入。
+                    val pendingNew = ArrayList<Contact>()
+                    val pendingRawIds = ArrayList<List<Long>>()
                     var updatedCount = 0
                     var unchanged = 0
 
@@ -698,15 +710,35 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                                 createdAt = now,
                                 updatedAt = now
                             )
-                            repo.insert(contact)
+                            pendingNew.add(contact)
+                            pendingRawIds.add(person.rawIds)
+                            // 先占位，避免同一批里后续 person 复用同一 rawId 时重复建人；
+                            // 批量写库拿到真实 id 后会统一回填。
                             person.rawIds.forEach { ownerOfRawId[it] = contact }
-                            imported++
                         }
                         // 每 20 条刷一次，太频繁会让重组拖慢导入本身
                         if (idx % 20 == 0 || idx == contactTotal - 1) {
-                            reportBusy(idx + 1, contactTotal)
+                            reportBusy(idx + 1, importTotal)
                         }
                     }
+
+                    // —— 第三步：整批并发加密 + 单事务写入 ——
+                    reportBusy(
+                        contactTotal, importTotal,
+                        context.getString(R.string.busy_phase_encrypt_write)
+                    )
+                    val newIds = repo.insertManyWithIds(pendingNew) { written ->
+                        reportBusy(contactTotal + written, importTotal)
+                    }
+                    newIds.forEachIndexed { i, id ->
+                        val saved = pendingNew[i].copy(id = id)
+                        pendingRawIds[i].forEach { ownerOfRawId[it] = saved }
+                    }
+                    val imported = newIds.count { it > 0 }
+                    reportBusy(
+                        importTotal, importTotal,
+                        context.getString(R.string.busy_phase_finish)
+                    )
 
                     val noPhone = sys.count { person ->
                         person.phones.none { PhoneText.digits(it).isNotEmpty() } &&
@@ -773,7 +805,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 刷新清空页要展示的计数 */
     fun refreshClearCounts() {
-        viewModelScope.launch {
+        workScope.launch {
             localContactCount = _contacts.value.size
             localSmsCount = withContext(Dispatchers.IO) {
                 runCatching { archiveRepo.smsTable.count() }.getOrDefault(0)
@@ -846,7 +878,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         val targets = clearTargets.toList()
         val direction = clearDirection
         startBusy(R.string.busy_clear_data, R.string.busy_phase_prepare, 45)
-        viewModelScope.launch {
+        workScope.launch {
             val results = withContext(Dispatchers.IO) {
                 // 先数出每项真实条数：分母是「一共多少条」，不是「勾了几项」
                 val units = targets.map { target ->
@@ -1214,7 +1246,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
         val targets = restoreTargets.toList()
         startBusy(R.string.busy_restore_data, R.string.busy_phase_prepare, 60)
-        viewModelScope.launch {
+        workScope.launch {
             val results = withContext(Dispatchers.IO) {
                 // 还原的分母是加密库里实际要写回的条数，不是「勾了几项」
                 val units = targets.map { target ->
@@ -1401,7 +1433,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         startBusy(R.string.busy_export_backup, R.string.busy_phase_export_csv, 15)
-        viewModelScope.launch {
+        workScope.launch {
             reportBusy(0, all.size)
             val count = withContext(Dispatchers.IO) {
                 runCatching {
@@ -1434,7 +1466,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     private val EXPORT_PAGE_SIZE = 500
 
     fun loadSms(append: Boolean = false) {
-        viewModelScope.launch {
+        workScope.launch {
             // 本应用加密副本的条数与系统权限无关，先算出来
             val total = withContext(Dispatchers.IO) {
                 runCatching { archiveRepo.smsTable.count() }.getOrDefault(0)
@@ -1466,7 +1498,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (busy) return
         startBusy(R.string.busy_read_sms, R.string.busy_phase_read_sms, 30)
-        viewModelScope.launch {
+        workScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     reportBusy(0, 0, context.getString(R.string.busy_phase_read_sms))
@@ -1552,7 +1584,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         startBusy(R.string.busy_export_sms_backup, R.string.busy_phase_export_csv, 20)
-        viewModelScope.launch {
+        workScope.launch {
             val total = localSmsCount
             reportBusy(0, total)
             val count = withContext(Dispatchers.IO) {
@@ -1578,7 +1610,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
     // ————————————————— 通话记录备份 —————————————————
 
     fun loadCallLog(append: Boolean = false) {
-        viewModelScope.launch {
+        workScope.launch {
             // 本应用加密副本的条数与系统权限无关，先算出来
             localCallCount = withContext(Dispatchers.IO) {
                 runCatching { archiveRepo.callTable.count() }.getOrDefault(0)
@@ -1609,7 +1641,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (busy) return
         startBusy(R.string.busy_read_calllog, R.string.busy_phase_read_calls, 20)
-        viewModelScope.launch {
+        workScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     reportBusy(0, 0, context.getString(R.string.busy_phase_read_calls))
@@ -1689,7 +1721,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         startBusy(R.string.busy_export_calls_backup, R.string.busy_phase_export_csv, 15)
-        viewModelScope.launch {
+        workScope.launch {
             val total = localCallCount
             reportBusy(0, total)
             val count = withContext(Dispatchers.IO) {

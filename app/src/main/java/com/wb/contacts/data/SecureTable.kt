@@ -111,7 +111,12 @@ class SecureTable<T>(
 
     /**
      * 批量写入，单事务提交；返回成功条数。
-     * [onProgress] 每写入一批回调一次累计条数 —— 上万条加密写入可能要几十秒，
+     *
+     * 两步走：先在 [Dispatchers.Default] 上并发把整批记录加密成密文，再用一条
+     * 预编译的 INSERT 语句在单事务里顺序写库。以前是「加密一条、编译一条 SQL、插一条」，
+     * 上万条时要编译上万次 SQL；现在加密并行、SQL 只编译一次。
+     *
+     * [onProgress] 每写入 50 条回调一次累计条数 —— 上万条加密写入可能要几十秒，
      * 没有它进度会卡在最后一步不动。
      */
     suspend fun insertMany(
@@ -119,17 +124,33 @@ class SecureTable<T>(
         onProgress: (Int) -> Unit = {}
     ): Int = withContext(Dispatchers.IO) {
         if (items.isEmpty()) return@withContext 0
+        val payloads = withContext(Dispatchers.Default) {
+            val gate = Semaphore(ENCRYPT_CONCURRENCY)
+            items.map { item ->
+                async {
+                    gate.withPermit { runCatching { encrypt(item) }.getOrNull() }
+                }
+            }.awaitAll()
+        }
         val db = helper.writableDatabase
+        val statement = db.compileStatement(
+            "INSERT INTO $table (${ContactsDbHelper.COL_PAYLOAD}) VALUES (?)"
+        )
         var inserted = 0
         db.beginTransaction()
         try {
-            items.forEachIndexed { index, item ->
-                if (db.insert(table, null, values(item)) > 0) inserted++
+            payloads.forEachIndexed { index, payload ->
+                if (payload != null) {
+                    statement.clearBindings()
+                    statement.bindBlob(1, payload)
+                    if (statement.executeInsert() > 0) inserted++
+                }
                 if ((index + 1) % 50 == 0 || index == items.lastIndex) onProgress(index + 1)
             }
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
+            statement.close()
         }
         invalidate()
         inserted
@@ -172,6 +193,7 @@ class SecureTable<T>(
 
     private companion object {
         const val DECRYPT_CONCURRENCY = 8
+        const val ENCRYPT_CONCURRENCY = 8
         const val MAX_PAGE = 100000
     }
 }
