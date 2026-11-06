@@ -547,6 +547,8 @@
     <string name="busy_overlay_eta_overdue">已超出预估，仍在处理，请继续等待</string>
     <string name="busy_overlay_eta_note">时间预估仅供参考，数据量大或系统繁忙时会延长</string>
     <string name="busy_overlay_no_close">请勿关闭本软件、切到后台或强制停止，否则正在写入的数据可能中断</string>
+    <string name="busy_overlay_rate">处理速度 约 %1$d 条/秒</string>
+    <string name="busy_overlay_eta_done">即将完成…</string>
 
     <string name="busy_phase_prepare">正在准备数据…</string>
     <string name="busy_phase_read_contacts">正在读取系统通讯录…</string>
@@ -566,5 +568,8 @@
 
     <string name="about_update_v1_8_5">v1.8.5</string>
     <string name="about_update_v1_8_5_desc">备份、还原、清空期间加全屏进度遮罩，显示阶段、进度与预计剩余时间，完成前禁止操作其他界面；界面补上骚扰拦截短信受厂商签名权限限制的说明</string>
+
+    <string name="about_update_v1_8_6">v1.8.6</string>
+    <string name="about_update_v1_8_6_desc">备份、还原、清空的进度改为按真实条数逐条上报，不再一直显示 0/1；补上百分比、实时处理速度，剩余时间改按最近几秒的实际速率估算，批量加密写入单独计进度</string>
 
 </resources>

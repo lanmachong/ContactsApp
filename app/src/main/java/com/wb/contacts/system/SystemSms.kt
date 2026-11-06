@@ -189,7 +189,7 @@ object SystemSms {
      * 这种路径（只有 icc / icc_subId），早前拼的那个 URI 删除必然返回 0，
      * 属于空转，已移除。
      */
-    fun deleteAll(context: Context): DeleteOutcome {
+    fun deleteAll(context: Context, onProgress: (Int) -> Unit = {}): DeleteOutcome {
         val resolver = context.contentResolver
         var smsDeleted = 0
         var mmsDeleted = 0
@@ -202,17 +202,27 @@ object SystemSms {
         runCatching { resolver.delete(MMS_URI, null, null) }
             .onSuccess { mmsDeleted += it }
             .onFailure { /* 个别 ROM 不给删彩信表，回读时如实反映 */ }
+        onProgress(smsDeleted + mmsDeleted)
 
         // 第二轮：残留按 id **逐条**删。
         // AOSP SmsProvider 对 content://sms 的全量 delete 会强制追加
         // `sub_id IN (当前活跃订阅)` 过滤，sub_id = -1 的记录永远跳过；
         // 只有 content://sms/<id> 走 deleteOneSms() 这条分支不带过滤。
-        remainingWithSubId(context).forEach { (id, _) ->
-            smsDeleted += deleteOne(context, SMS_URI, id)
+        val smsLeft = remainingWithSubId(context)
+        smsLeft.forEachIndexed { idx, pair ->
+            smsDeleted += deleteOne(context, SMS_URI, pair.first)
+            if (idx % 20 == 0 || idx == smsLeft.lastIndex) {
+                onProgress(smsDeleted + mmsDeleted)
+            }
         }
-        remainingMmsIds(context).forEach { id ->
+        val mmsLeft = remainingMmsIds(context)
+        mmsLeft.forEachIndexed { idx, id ->
             mmsDeleted += deleteOne(context, MMS_URI, id)
+            if (idx % 20 == 0 || idx == mmsLeft.lastIndex) {
+                onProgress(smsDeleted + mmsDeleted)
+            }
         }
+        onProgress(smsDeleted + mmsDeleted)
 
         val inv = inventory(context)
         val deleted = smsDeleted + mmsDeleted
@@ -262,8 +272,12 @@ object SystemSms {
      * 但短信根本不会出现在短信应用里**。那种情况下不能相信 insert 的返回值，
      * 必须靠 [isDefaultSmsApp] 提前拦住。
      */
-    fun exportToSystem(context: Context, messages: List<SmsMessage>): ExportSummary =
-        exportToSystem(context, messages, existingKeys(context), existingThreads(context))
+    fun exportToSystem(
+        context: Context,
+        messages: List<SmsMessage>,
+        onProgress: (Int) -> Unit = {}
+    ): ExportSummary =
+        exportToSystem(context, messages, existingKeys(context), existingThreads(context), onProgress)
 
     /**
      * 分页写回系统。
@@ -275,18 +289,20 @@ object SystemSms {
         context: Context,
         messages: List<SmsMessage>,
         existing: MutableSet<String>,
-        threads: Map<String, Long>
+        threads: Map<String, Long>,
+        onProgress: (Int) -> Unit = {}
     ): ExportSummary {
         val resolver = context.contentResolver
         var created = 0
         var skippedExisting = 0
         var failed = 0
 
-        messages.forEach { msg ->
+        for ((index, msg) in messages.withIndex()) {
             val key = keyOf(msg.address, msg.body, msg.date)
             if (key in existing) {
                 skippedExisting++
-                return@forEach
+                if ((index + 1) % 20 == 0 || index == messages.lastIndex) onProgress(index + 1)
+                continue
             }
             val values = android.content.ContentValues().apply {
                 put(Telephony.Sms.ADDRESS, msg.address)
@@ -315,6 +331,7 @@ object SystemSms {
                     created++
                 }
             }
+            if ((index + 1) % 20 == 0 || index == messages.lastIndex) onProgress(index + 1)
         }
         return ExportSummary(created, skippedExisting, failed)
     }

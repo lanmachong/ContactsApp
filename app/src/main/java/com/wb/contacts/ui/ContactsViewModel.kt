@@ -439,6 +439,42 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         if (phase != null) busyPhase = phase
     }
 
+    /**
+     * 一次任务里各阶段共用的「按条数」进度累加器。
+     *
+     * 分母是本次要处理的**真实总条数**（各目标条数相加），阶段回调只报
+     * 「本阶段已处理多少条」，由这里换算成全局累计值。以前清空 / 还原是按
+     * 「勾了几项」上报的，勾一项就永远显示 0 / 1，倒计时也只能靠粗估。
+     */
+    private inner class ItemProgress(private val grandTotal: Int) {
+        private var stageBase = 0
+
+        /** 开始一个阶段，返回该阶段专用的进度回调（参数是本阶段已处理条数） */
+        fun stage(phase: String, weight: Int): (Int) -> Unit {
+            val base = stageBase
+            stageBase += weight
+            reportBusy(base, grandTotal, phase)
+            return { processed ->
+                reportBusy((base + processed).coerceIn(base, base + weight), grandTotal)
+            }
+        }
+
+        fun finish(phase: String) {
+            reportBusy(grandTotal, grandTotal, phase)
+        }
+    }
+
+    /** 多轮删除 / 多页写回共用回调时，保证进度只前进不倒退 */
+    private fun monotonic(sink: (Int) -> Unit): (Int) -> Unit {
+        var last = 0
+        return { n ->
+            if (n > last) {
+                last = n
+                sink(n)
+            }
+        }
+    }
+
     // ————————————————— 导入系统通讯录 —————————————————
 
     /**
@@ -459,7 +495,9 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         startBusy(R.string.busy_compare_dup, R.string.busy_phase_prepare, 10)
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
-                runCatching { applyDuplicateTags() }
+                runCatching {
+                    applyDuplicateTags { done, total -> reportBusy(done, total) }
+                }
             }
             endBusy()
             outcome.onSuccess { (tagged, untagged, dupCount) ->
@@ -486,7 +524,9 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      * 重复标记的核心逻辑：返回 (新标记数, 撤销数, 重复号码数)。
      * 导入完成后也会跑一遍，保证用户改完系统记录重新导入时标记是准的。
      */
-    private suspend fun applyDuplicateTags(): Triple<Int, Int, Int> = withContext(Dispatchers.IO) {
+    private suspend fun applyDuplicateTags(
+        onProgress: (Int, Int) -> Unit = { _, _ -> }
+    ): Triple<Int, Int, Int> = withContext(Dispatchers.IO) {
         // 系统里：号码 -> 出现在几个不同联系人上
         val sys = runCatching { SystemContacts.readAll(context) }.getOrDefault(emptyList())
         val sysOwners = HashMap<String, MutableSet<Long>>()
@@ -514,15 +554,20 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         var tagged = 0
         var untagged = 0
         val now = System.currentTimeMillis()
-        all.forEach { c ->
+        onProgress(0, all.size)
+        all.forEachIndexed { idx, c ->
             val phones = listOf(c.phone, c.phone2)
                 .map { PhoneText.digits(it) }
                 .filter { it.isNotEmpty() }
             val shouldTag = phones.any { dupNumbers.contains(it) }
-            if (shouldTag == c.duplicate) return@forEach
+            if (shouldTag == c.duplicate) {
+                if ((idx + 1) % 20 == 0 || idx == all.lastIndex) onProgress(idx + 1, all.size)
+                return@forEachIndexed
+            }
             // 重复是独立布尔字段，不混进用户可以随便编辑的 tags 里
             repo.update(c.copy(duplicate = shouldTag, updatedAt = now))
             if (shouldTag) tagged++ else untagged++
+            if ((idx + 1) % 20 == 0 || idx == all.lastIndex) onProgress(idx + 1, all.size)
         }
         Triple(tagged, untagged, dupNumbers.size)
     }
@@ -800,23 +845,30 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
         val targets = clearTargets.toList()
         val direction = clearDirection
-        startBusy(R.string.busy_clear_data, R.string.busy_phase_prepare, 20)
+        startBusy(R.string.busy_clear_data, R.string.busy_phase_prepare, 45)
         viewModelScope.launch {
             val results = withContext(Dispatchers.IO) {
+                // 先数出每项真实条数：分母是「一共多少条」，不是「勾了几项」
+                val units = targets.map { target ->
+                    runCatching { clearUnitCount(target, direction) }.getOrDefault(0)
+                }
+                val tracker = ItemProgress(units.sum().coerceAtLeast(1))
                 targets.mapIndexed { idx, target ->
-                    reportBusy(
-                        idx, targets.size,
+                    val phase = tracker.stage(
                         context.getString(
                             when (target) {
                                 ClearTarget.CONTACTS -> R.string.busy_phase_clear_contacts
                                 ClearTarget.SMS -> R.string.busy_phase_clear_sms
                                 ClearTarget.CALLS -> R.string.busy_phase_clear_calls
                             }
-                        )
+                        ),
+                        units[idx]
                     )
-                    val result = clearOne(target, direction)
-                    reportBusy(idx + 1, targets.size)
+                    val result = clearOne(target, direction, monotonic(phase))
+                    phase(units[idx])
                     result
+                }.also {
+                    tracker.finish(context.getString(R.string.busy_phase_finish))
                 }
             }
             endBusy()
@@ -917,30 +969,52 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 清空一项 */
+    /** 这一项预计要处理多少条 —— 决定进度条的分母 */
+    private suspend fun clearUnitCount(target: ClearTarget, direction: ClearDirection): Int =
+        when (direction) {
+            ClearDirection.LOCAL -> when (target) {
+                ClearTarget.CONTACTS -> repo.count()
+                ClearTarget.SMS -> archiveRepo.smsTable.count()
+                ClearTarget.CALLS -> archiveRepo.callTable.count()
+            }
+            ClearDirection.SYSTEM -> when (target) {
+                ClearTarget.CONTACTS -> SystemContacts.countAll(context)
+                ClearTarget.SMS -> SystemSms.countAll(context)
+                ClearTarget.CALLS -> SystemCallLog.countAll(context)
+            }
+        }
+
+    /** 清空一项；[onProgress] 上报本项已处理的条数 */
     private suspend fun clearOne(
         target: ClearTarget,
-        direction: ClearDirection
+        direction: ClearDirection,
+        onProgress: (Int) -> Unit
     ): ClearResult = when (direction) {
-        ClearDirection.LOCAL -> clearLocal(target)
-        ClearDirection.SYSTEM -> clearSystem(target)
+        ClearDirection.LOCAL -> clearLocal(target, onProgress)
+        ClearDirection.SYSTEM -> clearSystem(target, onProgress)
     }
 
     /** 清空本应用里的加密副本 —— 不需要任何系统权限，一定能删 */
-    private suspend fun clearLocal(target: ClearTarget): ClearResult = when (target) {
+    private suspend fun clearLocal(
+        target: ClearTarget,
+        onProgress: (Int) -> Unit
+    ): ClearResult = when (target) {
         ClearTarget.CONTACTS -> {
             val before = repo.count()
             repo.deleteAll()
+            onProgress(before)
             ClearResult(target, before, 0, false)
         }
         ClearTarget.SMS -> {
             val before = archiveRepo.smsTable.count()
             archiveRepo.smsTable.deleteAll()
+            onProgress(before)
             ClearResult(target, before, 0, false)
         }
         ClearTarget.CALLS -> {
             val before = archiveRepo.callTable.count()
             archiveRepo.callTable.deleteAll()
+            onProgress(before)
             ClearResult(target, before, 0, false)
         }
     }
@@ -956,13 +1030,18 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
      * 三项都允许勾选。条件没满足时不硬拦死，让系统给结果并如实回报 ——
      * 不同 ROM 的实际能力不一样，一刀切禁用反而挡住了本来删得掉的机器。
      */
-    private suspend fun clearSystem(target: ClearTarget): ClearResult = when (target) {
+    private suspend fun clearSystem(
+        target: ClearTarget,
+        onProgress: (Int) -> Unit
+    ): ClearResult = when (target) {
         ClearTarget.CONTACTS -> {
             if (!PermissionUtil.canWriteContacts(context)) {
                 ClearResult(target, 0, 0, true)
             } else {
+                val before = runCatching { SystemContacts.countAll(context) }.getOrDefault(0)
+                val relay = monotonic(onProgress)
                 var deleted = withContext(Dispatchers.IO) {
-                    runCatching { SystemContacts.deleteAll(context) }.getOrDefault(-1)
+                    runCatching { SystemContacts.deleteAll(context, relay) }.getOrDefault(-1)
                 }
                 var remaining = withContext(Dispatchers.IO) {
                     runCatching { SystemContacts.countAll(context) }.getOrDefault(0)
@@ -970,7 +1049,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 // 第一轮没删干净就再来一轮，避免「清完还剩几个」
                 if (deleted >= 0 && remaining > 0) {
                     val again = withContext(Dispatchers.IO) {
-                        runCatching { SystemContacts.deleteAll(context) }.getOrDefault(0)
+                        runCatching { SystemContacts.deleteAll(context, relay) }.getOrDefault(0)
                     }
                     if (again > 0) {
                         deleted += again
@@ -979,6 +1058,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 }
+                // 部分 ROM 的 delete() 返回 0 却真的删了，按回读差额兜底推进
+                onProgress((before - remaining).coerceAtLeast(0))
                 if (deleted < 0) ClearResult(target, 0, remaining, true)
                 else ClearResult(target, deleted, remaining, false)
             }
@@ -990,14 +1071,16 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             if (!PermissionUtil.isDefaultSmsApp(context)) {
                 ClearResult(target, 0, 0, true)
             } else {
+                val before = runCatching { SystemSms.countAll(context) }.getOrDefault(0)
+                val relay = monotonic(onProgress)
                 var outcome = withContext(Dispatchers.IO) {
-                    runCatching { SystemSms.deleteAll(context) }
+                    runCatching { SystemSms.deleteAll(context, relay) }
                         .getOrElse { SystemSms.DeleteOutcome(0, 0, true) }
                 }
                 // 第一轮没删干净就再来一轮，避免「清完还剩几个」
                 if (!outcome.denied && outcome.remaining > 0) {
                     val again = withContext(Dispatchers.IO) {
-                        runCatching { SystemSms.deleteAll(context) }
+                        runCatching { SystemSms.deleteAll(context, relay) }
                             .getOrElse {
                                 SystemSms.DeleteOutcome(
                                     0, outcome.remaining, false,
@@ -1051,6 +1134,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     }
                 }
+                onProgress((before - outcome.remaining).coerceAtLeast(0))
                 ClearResult(target, outcome.deleted, outcome.remaining, outcome.denied, detail)
             }
         }
@@ -1060,15 +1144,17 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             if (!PermissionUtil.canWriteCallLog(context)) {
                 ClearResult(target, 0, 0, true)
             } else {
+                val before = runCatching { SystemCallLog.countAll(context) }.getOrDefault(0)
+                val relay = monotonic(onProgress)
                 var deleted = withContext(Dispatchers.IO) {
-                    runCatching { SystemCallLog.deleteAll(context) }.getOrDefault(-1)
+                    runCatching { SystemCallLog.deleteAll(context, relay) }.getOrDefault(-1)
                 }
                 var remaining = withContext(Dispatchers.IO) {
                     runCatching { SystemCallLog.countAll(context) }.getOrDefault(0)
                 }
                 if (deleted >= 0 && remaining > 0) {
                     val again = withContext(Dispatchers.IO) {
-                        runCatching { SystemCallLog.deleteAll(context) }.getOrDefault(0)
+                        runCatching { SystemCallLog.deleteAll(context, relay) }.getOrDefault(0)
                     }
                     if (again > 0) {
                         deleted += again
@@ -1077,6 +1163,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 }
+                onProgress((before - remaining).coerceAtLeast(0))
                 // 抛异常、或一条没删却还剩着 —— 都是系统实际拒绝了
                 val denied = deleted < 0 || (deleted == 0 && remaining > 0)
                 ClearResult(target, deleted.coerceAtLeast(0), remaining, denied)
@@ -1126,22 +1213,29 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         if (busy) return
 
         val targets = restoreTargets.toList()
-        startBusy(R.string.busy_restore_data, R.string.busy_phase_prepare, 30)
+        startBusy(R.string.busy_restore_data, R.string.busy_phase_prepare, 60)
         viewModelScope.launch {
             val results = withContext(Dispatchers.IO) {
+                // 还原的分母是加密库里实际要写回的条数，不是「勾了几项」
+                val units = targets.map { target ->
+                    runCatching { restoreUnitCount(target) }.getOrDefault(0)
+                }
+                val tracker = ItemProgress(units.sum().coerceAtLeast(1))
                 targets.mapIndexed { idx, target ->
-                    reportBusy(
-                        idx, targets.size,
+                    val phase = tracker.stage(
                         context.getString(
                             when (target) {
                                 RestoreTarget.CONTACTS -> R.string.busy_phase_restore_contacts
                                 RestoreTarget.SMS -> R.string.busy_phase_restore_sms
                             }
-                        )
+                        ),
+                        units[idx]
                     )
-                    val result = restoreOne(target)
-                    reportBusy(idx + 1, targets.size)
+                    val result = restoreOne(target, monotonic(phase))
+                    phase(units[idx])
                     result
+                }.also {
+                    tracker.finish(context.getString(R.string.busy_phase_finish))
                 }
             }
             endBusy()
@@ -1228,15 +1322,24 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 还原一项 */
-    private suspend fun restoreOne(target: RestoreTarget): RestoreResult = when (target) {
+    /** 这一项预计要写回多少条 —— 决定进度条的分母 */
+    private suspend fun restoreUnitCount(target: RestoreTarget): Int = when (target) {
+        RestoreTarget.CONTACTS -> repo.count()
+        RestoreTarget.SMS -> archiveRepo.smsTable.count()
+    }
+
+    /** 还原一项；[onProgress] 上报本项已写回的条数 */
+    private suspend fun restoreOne(
+        target: RestoreTarget,
+        onProgress: (Int) -> Unit
+    ): RestoreResult = when (target) {
         RestoreTarget.CONTACTS -> {
             if (!PermissionUtil.canWriteContacts(context)) {
                 RestoreResult(target, 0, 0, 0, true)
             } else {
                 val list = repo.getAll()
                 val summary = runCatching {
-                    SystemContacts.exportToSystem(context, list)
+                    SystemContacts.exportToSystem(context, list, onProgress)
                 }.getOrNull()
                 if (summary == null) {
                     RestoreResult(target, 0, 0, 0, true)
@@ -1267,13 +1370,18 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 var written = 0
                 var skipped = 0
                 var failed = 0
+                var processed = 0
                 val ok = runCatching {
                     val existing = SystemSms.existingKeys(context)
                     // 系统里现存的会话映射：清空过之后旧 thread_id 已经失效，
                     // 照抄会把短信挂到不存在的会话上，用户在短信应用里根本找不到
                     val threads = SystemSms.existingThreads(context)
                     archiveRepo.smsTable.forEachPage(EXPORT_PAGE_SIZE) { page ->
-                        val s = SystemSms.exportToSystem(context, page, existing, threads)
+                        val s = SystemSms.exportToSystem(context, page, existing, threads) { inPage ->
+                            onProgress(processed + inPage)
+                        }
+                        processed += page.size
+                        onProgress(processed)
                         written += s.created
                         skipped += s.skippedExisting
                         failed += s.failed
@@ -1296,7 +1404,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             reportBusy(0, all.size)
             val count = withContext(Dispatchers.IO) {
-                runCatching { SystemContacts.exportCsv(context, uri, all) }.getOrDefault(-1)
+                runCatching {
+                    SystemContacts.exportCsv(context, uri, all) { written ->
+                        reportBusy(written, all.size)
+                    }
+                }.getOrDefault(-1)
             }
             reportBusy(all.size, all.size, context.getString(R.string.busy_phase_finish))
             endBusy()
@@ -1357,7 +1469,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    reportBusy(0, 0, context.getString(R.string.busy_phase_prepare))
+                    reportBusy(0, 0, context.getString(R.string.busy_phase_read_sms))
                     val known = HashSet<Long>()
                     // 先把库里的系统 id 读出来，避免重复导入产生副本
                     var offset = 0
@@ -1369,9 +1481,10 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                     }
 
                     val sys = SystemSms.readAll(context)
-                    // 最后一步「加密批量写库」也算一个进度单位，别让界面停在 99% 没动静
-                    val smsTotal = sys.size + 1
-                    reportBusy(0, smsTotal, context.getString(R.string.busy_phase_import_sms))
+                    // 「整理」和「加密写入」各按真实条数计一次：加密写入往往才是最慢的一段，
+                    // 以前把它算成一个单位，进度会先冲到 99% 再长时间不动。
+                    val workTotal = (sys.size * 2).coerceAtLeast(1)
+                    reportBusy(0, workTotal, context.getString(R.string.busy_phase_import_sms))
                     val now = System.currentTimeMillis()
                     val pending = ArrayList<SmsMessage>()
                     var skipped = 0
@@ -1394,15 +1507,17 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                             )
                         )
                         if (idx % 100 == 0 || idx == sys.lastIndex) {
-                            reportBusy(idx + 1, smsTotal)
+                            reportBusy(idx + 1, workTotal)
                         }
                     }
                     reportBusy(
-                        smsTotal - 1, smsTotal,
+                        sys.size, workTotal,
                         context.getString(R.string.busy_phase_encrypt_write)
                     )
-                    val inserted = archiveRepo.smsTable.insertMany(pending)
-                    reportBusy(smsTotal, smsTotal, context.getString(R.string.busy_phase_finish))
+                    val inserted = archiveRepo.smsTable.insertMany(pending) { written ->
+                        reportBusy(sys.size + written, workTotal)
+                    }
+                    reportBusy(workTotal, workTotal, context.getString(R.string.busy_phase_finish))
                     Triple(sys.size, inserted, skipped)
                 }
             }
@@ -1497,7 +1612,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    reportBusy(0, 0, context.getString(R.string.busy_phase_prepare))
+                    reportBusy(0, 0, context.getString(R.string.busy_phase_read_calls))
                     val known = HashSet<Long>()
                     var offset = 0
                     while (true) {
@@ -1508,8 +1623,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                     }
 
                     val sys = SystemCallLog.readAll(context)
-                    val callTotal = sys.size + 1
-                    reportBusy(0, callTotal, context.getString(R.string.busy_phase_import_calls))
+                    val workTotal = (sys.size * 2).coerceAtLeast(1)
+                    reportBusy(0, workTotal, context.getString(R.string.busy_phase_import_calls))
                     val now = System.currentTimeMillis()
                     val pending = ArrayList<CallRecord>()
                     var skipped = 0
@@ -1530,15 +1645,17 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                             )
                         )
                         if (idx % 100 == 0 || idx == sys.lastIndex) {
-                            reportBusy(idx + 1, callTotal)
+                            reportBusy(idx + 1, workTotal)
                         }
                     }
                     reportBusy(
-                        callTotal - 1, callTotal,
+                        sys.size, workTotal,
                         context.getString(R.string.busy_phase_encrypt_write)
                     )
-                    val inserted = archiveRepo.callTable.insertMany(pending)
-                    reportBusy(callTotal, callTotal, context.getString(R.string.busy_phase_finish))
+                    val inserted = archiveRepo.callTable.insertMany(pending) { written ->
+                        reportBusy(sys.size + written, workTotal)
+                    }
+                    reportBusy(workTotal, workTotal, context.getString(R.string.busy_phase_finish))
                     Triple(sys.size, inserted, skipped)
                 }
             }

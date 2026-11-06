@@ -593,6 +593,8 @@ There is no network permission, and no location, camera, microphone, or storage 
     <string name="busy_overlay_eta_overdue">Taking longer than estimated, still working - please wait</string>
     <string name="busy_overlay_eta_note">Estimate only; large datasets or a busy system may take longer</string>
     <string name="busy_overlay_no_close">Do not close this app, switch away, or force-stop it - data being written may be interrupted</string>
+    <string name="busy_overlay_rate">Speed: about %1$d items/s</string>
+    <string name="busy_overlay_eta_done">Almost done...</string>
 
     <string name="busy_phase_prepare">Preparing data...</string>
     <string name="busy_phase_read_contacts">Reading system contacts...</string>
@@ -612,5 +614,8 @@ There is no network permission, and no location, camera, microphone, or storage 
 
     <string name="about_update_v1_8_5">v1.8.5</string>
     <string name="about_update_v1_8_5_desc">Backup, restore and clear now show a full-screen progress overlay with the current step, progress and estimated time left, and block other screens until done; added an in-app note that spam-blocked messages need a vendor signature permission</string>
+
+    <string name="about_update_v1_8_6">v1.8.6</string>
+    <string name="about_update_v1_8_6_desc">Backup, restore and clear now report progress in real item counts instead of a stuck 0/1 step counter; added percentage and live speed, estimated time left uses the recent measured rate, and bulk encrypted writes have their own progress stage</string>
 
 </resources>

@@ -109,15 +109,23 @@ class SecureTable<T>(
         id
     }
 
-    /** 批量写入，单事务提交；返回成功条数 */
-    suspend fun insertMany(items: List<T>): Int = withContext(Dispatchers.IO) {
+    /**
+     * 批量写入，单事务提交；返回成功条数。
+     * [onProgress] 每写入一批回调一次累计条数 —— 上万条加密写入可能要几十秒，
+     * 没有它进度会卡在最后一步不动。
+     */
+    suspend fun insertMany(
+        items: List<T>,
+        onProgress: (Int) -> Unit = {}
+    ): Int = withContext(Dispatchers.IO) {
         if (items.isEmpty()) return@withContext 0
         val db = helper.writableDatabase
         var inserted = 0
         db.beginTransaction()
         try {
-            items.forEach { item ->
+            items.forEachIndexed { index, item ->
                 if (db.insert(table, null, values(item)) > 0) inserted++
+                if ((index + 1) % 50 == 0 || index == items.lastIndex) onProgress(index + 1)
             }
             db.setTransactionSuccessful()
         } finally {

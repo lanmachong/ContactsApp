@@ -75,9 +75,13 @@ object SystemCallLog {
      * 没拿到 WRITE_CALL_LOG 时系统会抛 SecurityException 或返回 0；
      * 返回 -1 表示被系统拒绝，0 表示没删掉任何一条。
      */
-    fun deleteAll(context: Context): Int = runCatching {
-        context.contentResolver.delete(CallLog.Calls.CONTENT_URI, null, null)
-    }.getOrDefault(-1)
+    fun deleteAll(context: Context, onProgress: (Int) -> Unit = {}): Int {
+        val deleted = runCatching {
+            context.contentResolver.delete(CallLog.Calls.CONTENT_URI, null, null)
+        }.getOrDefault(-1)
+        if (deleted > 0) onProgress(deleted)
+        return deleted
+    }
 
     fun deleteByIds(context: Context, ids: List<Long>): Int {
         if (ids.isEmpty()) return 0

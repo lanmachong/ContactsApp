@@ -55,18 +55,23 @@ import java.util.Locale
  * · 返回键、点击外部都吃掉，任务完成前点不到软件其他地方
  * · 显示当前阶段、已处理条数、预计剩余倒计时、已用时间
  *
- * 倒计时优先按实测速率外推（已用时间 × 剩余量 ÷ 已完成量）；
- * 还没拿到进度时用调用方给的粗估时长兜底，并明确标注是估算值。
+ * 分母是所有待处理数据的真实条数，逐条 / 逐批上报，不再按「勾了几项」算。
+ * 倒计时优先按最近 8 秒的实测速率外推，其次用全程平均速率，
+ * 都拿不到时才用调用方给的粗估时长兜底，并明确标注是估算值。
  * 系统 Home 键和「强制停止」是应用拦不住的，所以提示里会写明别这么做。
  */
 @Composable
 fun BusyOverlay(vm: ContactsViewModel) {
-    // 每秒刷新一次，倒计时才会真的走起来
+    // 每秒刷新一次，倒计时才会真的走起来；同时采一份进度样本
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
+    var samples by remember { mutableStateOf(listOf<Pair<Long, Int>>()) }
+    LaunchedEffect(vm.busyStartedAt) {
+        samples = emptyList()
         while (true) {
             delay(1000L)
-            now = System.currentTimeMillis()
+            val tick = System.currentTimeMillis()
+            now = tick
+            samples = (samples + (tick to vm.busyDone)).takeLast(9)
         }
     }
 
@@ -76,17 +81,32 @@ fun BusyOverlay(vm: ContactsViewModel) {
     val total = vm.busyTotal
     val fraction = if (total > 0) (done.toFloat() / total.toFloat()).coerceIn(0f, 1f) else -1f
 
+    // 用最近 8 秒的实测速率外推。全局平均速率会被「开头的整理阶段很快、
+    // 后面的加密写入很慢」拉偏，倒计时会越估越短；滑动窗口更贴近当前阶段。
+    val ratePerSec: Double? = if (samples.size >= 3) {
+        val (t0, d0) = samples.first()
+        val (t1, d1) = samples.last()
+        val window = (t1 - t0) / 1000.0
+        if (window >= 2.0 && d1 > d0) (d1 - d0) / window else null
+    } else {
+        null
+    }
+
     // 有真实进度就按实测速率外推；否则退回粗估时长，用完后如实说「仍在处理」
     val etaSec: Long? = when {
-        done > 0 && total > done ->
-            (elapsedMs * (total - done) / done / 1000L).coerceAtLeast(0L)
         total > 0 && done >= total -> 0L
+        ratePerSec != null && total > done ->
+            ((total - done) / ratePerSec).toLong().coerceAtLeast(1L)
+        done > 0 && total > done ->
+            (elapsedMs * (total - done) / done / 1000L).coerceAtLeast(1L)
         vm.busyEstimateSeconds > 0 ->
             (vm.busyEstimateSeconds.toLong() - elapsedSec).coerceAtLeast(0L)
         else -> null
     }
-    val overdue = etaSec == 0L && !(total > 0 && done >= total)
+    val finished = total > 0 && done >= total
+    val overdue = etaSec == 0L && !finished
     val etaText = when {
+        finished -> stringResource(R.string.busy_overlay_eta_done)
         overdue -> stringResource(R.string.busy_overlay_eta_overdue)
         etaSec != null -> stringResource(R.string.busy_overlay_eta, formatClock(etaSec))
         else -> stringResource(R.string.busy_overlay_estimating)
@@ -173,6 +193,19 @@ fun BusyOverlay(vm: ContactsViewModel) {
                         Spacer(Modifier.height(6.dp))
                         Text(
                             stringResource(R.string.busy_overlay_progress, done, total),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // 实时速率：数字一直在动，也能看出倒计时是按什么算出来的
+                    if (ratePerSec != null && !finished) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(
+                                R.string.busy_overlay_rate,
+                                ratePerSec.toInt().coerceAtLeast(1)
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

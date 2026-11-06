@@ -146,9 +146,10 @@ object SystemContacts {
      * 按 raw contact id 精确删除系统联系人（不误删用户后加的联系人）。
      * 分批执行，避免 SQL 变量数超限。
      */
-    fun deleteByRawIds(context: Context, rawIds: List<Long>): Int {
+    fun deleteByRawIds(context: Context, rawIds: List<Long>, onProgress: (Int) -> Unit = {}): Int {
         if (rawIds.isEmpty()) return 0
         var deleted = 0
+        var processed = 0
         rawIds.chunked(150).forEach { chunk ->
             val placeholders = chunk.joinToString(",") { "?" }
             val selection = "${ContactsContract.RawContacts._ID} IN ($placeholders)"
@@ -158,12 +159,15 @@ object SystemContacts {
                 selection,
                 args
             )
+            processed += chunk.size
+            onProgress(processed)
         }
         return deleted
     }
 
     /** 删除系统通讯录里的全部联系人 */
-    fun deleteAll(context: Context): Int = deleteByRawIds(context, allRawIds(context))
+    fun deleteAll(context: Context, onProgress: (Int) -> Unit = {}): Int =
+        deleteByRawIds(context, allRawIds(context), onProgress)
 
     /** 导出结果 */
     data class ExportSummary(
@@ -203,7 +207,11 @@ object SystemContacts {
      *
      * 按号码去重：系统里已经有这个号码的联系人就跳过，不会写出重复卡片。
      */
-    fun exportToSystem(context: Context, contacts: List<Contact>): ExportSummary {
+    fun exportToSystem(
+        context: Context,
+        contacts: List<Contact>,
+        onProgress: (Int) -> Unit = {}
+    ): ExportSummary {
         val resolver = context.contentResolver
         val existing = existingPhoneNumbers(context)
         var created = 0
@@ -211,18 +219,20 @@ object SystemContacts {
         var skippedNoPhone = 0
         var failed = 0
 
-        contacts.forEach { contact ->
+        for ((index, contact) in contacts.withIndex()) {
             val phones = listOf(contact.phone, contact.phone2)
                 .map { it.trim() }
                 .filter { PhoneText.digits(it).isNotEmpty() }
             if (phones.isEmpty()) {
                 skippedNoPhone++
-                return@forEach
+                onProgress(index + 1)
+                continue
             }
             val normalized = phones.map { PhoneText.digits(it) }
             if (normalized.any { existing.contains(it) }) {
                 skippedExisting++
-                return@forEach
+                onProgress(index + 1)
+                continue
             }
 
             val ops = ArrayList<ContentProviderOperation>()
@@ -239,7 +249,7 @@ object SystemContacts {
                     .withValue(StructuredName.DISPLAY_NAME, contact.name.ifBlank { context.getString(R.string.contact_unnamed) })
                     .build()
             )
-            phones.forEachIndexed { index, number ->
+            phones.forEachIndexed { phoneIndex, number ->
                 ops.add(
                     ContentProviderOperation.newInsert(Data.CONTENT_URI)
                         .withValueBackReference(Data.RAW_CONTACT_ID, 0)
@@ -247,7 +257,7 @@ object SystemContacts {
                         .withValue(Phone.NUMBER, number)
                         .withValue(
                             Phone.TYPE,
-                            if (index == 0) Phone.TYPE_MOBILE else Phone.TYPE_OTHER
+                            if (phoneIndex == 0) Phone.TYPE_MOBILE else Phone.TYPE_OTHER
                         )
                         .build()
                 )
@@ -260,18 +270,24 @@ object SystemContacts {
             } catch (e: Exception) {
                 failed++
             }
+            onProgress(index + 1)
         }
         return ExportSummary(created, skippedExisting, skippedNoPhone, failed)
     }
 
     /** 导出 CSV 备份（UTF-8 BOM，Excel 直接打开不乱码） */
-    fun exportCsv(context: Context, uri: Uri, contacts: List<Contact>): Int {
+    fun exportCsv(
+        context: Context,
+        uri: Uri,
+        contacts: List<Contact>,
+        onProgress: (Int) -> Unit = {}
+    ): Int {
         val stream = context.contentResolver.openOutputStream(uri) ?: return -1
         stream.bufferedWriter(Charsets.UTF_8).use { writer ->
             writer.write("\uFEFF")
             writer.write(context.getString(R.string.csv_contacts_header))
             writer.newLine()
-            contacts.forEach { c ->
+            contacts.forEachIndexed { index, c ->
                 val row = listOf(
                     c.name, c.phone, c.phone2,
                     // 库里存的是内部键 / 布尔位，导出成人能看的文案
@@ -282,6 +298,7 @@ object SystemContacts {
                 )
                 writer.write(row.joinToString(",") { escape(it) })
                 writer.newLine()
+                if ((index + 1) % 50 == 0 || index == contacts.lastIndex) onProgress(index + 1)
             }
         }
         return contacts.size
