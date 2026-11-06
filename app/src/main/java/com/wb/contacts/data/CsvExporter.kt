@@ -24,8 +24,16 @@ object CsvExporter {
 
     private const val PAGE_SIZE = 500
 
-    /** 导出短信 CSV（UTF-8 BOM，Excel 直接打开不乱码）；返回写出的条数，-1 表示失败 */
-    suspend fun exportSms(context: Context, uri: Uri, table: SecureTable<SmsMessage>): Int {
+    /**
+     * 导出短信 CSV（UTF-8 BOM，Excel 直接打开不乱码）；返回写出的条数，-1 表示失败。
+     * [onProgress] 每写完一页回调一次累计条数，供界面显示进度与预计剩余时间。
+     */
+    suspend fun exportSms(
+        context: Context,
+        uri: Uri,
+        table: SecureTable<SmsMessage>,
+        onProgress: (Int) -> Unit = {}
+    ): Int {
         val stream = context.contentResolver.openOutputStream(uri) ?: return -1
         var written = 0
         stream.bufferedWriter(Charsets.UTF_8).use { writer ->
@@ -48,13 +56,19 @@ object CsvExporter {
                     writer.newLine()
                 }
                 written += chunk.size
+                onProgress(written)
             }
         }
         return written
     }
 
     /** 导出通话记录 CSV；返回写出的条数，-1 表示失败 */
-    suspend fun exportCalls(context: Context, uri: Uri, table: SecureTable<CallRecord>): Int {
+    suspend fun exportCalls(
+        context: Context,
+        uri: Uri,
+        table: SecureTable<CallRecord>,
+        onProgress: (Int) -> Unit = {}
+    ): Int {
         val stream = context.contentResolver.openOutputStream(uri) ?: return -1
         var written = 0
         stream.bufferedWriter(Charsets.UTF_8).use { writer ->
@@ -74,6 +88,7 @@ object CsvExporter {
                     writer.newLine()
                 }
                 written += chunk.size
+                onProgress(written)
             }
         }
         return written

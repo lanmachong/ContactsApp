@@ -278,6 +278,11 @@ fun ClearDataScreen(vm: ContactsViewModel) {
                 stringResource(R.string.clear_data_warning_body)
             )
 
+            Spacer(Modifier.height(14.dp))
+
+            // 厂商私有库（骚扰拦截箱等）不在本应用可见范围 —— 如实说明是权限边界，不是软件故障
+            VendorLimitNotice()
+
             Spacer(Modifier.height(32.dp))
         }
     }

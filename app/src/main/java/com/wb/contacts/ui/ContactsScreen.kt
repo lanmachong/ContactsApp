@@ -91,6 +91,11 @@ fun ContactsRoot(vm: ContactsViewModel) {
         if (vm.searching) vm.enterSearch(false) else vm.back()
     }
 
+    // 耗时任务期间吞掉返回键：Dialog 关掉 dismissOnBackPress 只是「不关弹窗」，
+    // 返回键仍会往下传，可能直接把 Activity 退出去 —— 这里再兜一层。
+    // BackHandler 后注册的优先消费，所以放在上面那条之后。
+    BackHandler(enabled = vm.busy) { /* 故意不做事，等任务自己结束 */ }
+
     when (val screen = vm.screen) {
         is Screen.Home -> HomeScreen(vm)
 
@@ -155,7 +160,10 @@ fun ContactsRoot(vm: ContactsViewModel) {
         )
     }
 
-
+    // 最后画：独立窗口的全屏模态层，覆盖所有页面与弹窗，直到任务结束
+    if (vm.busy) {
+        BusyOverlay(vm)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -292,26 +300,7 @@ fun HomeScreen(vm: ContactsViewModel) {
             }
         }
 
-        if (vm.busy) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.35f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(horizontal = 28.dp, vertical = 22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                    Spacer(Modifier.height(12.dp))
-                    Text(vm.busyText, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
+        // 忙态遮罩已提升到 ContactsRoot 的 BusyOverlay（覆盖全部页面），这里不再重复画
     }
 }
 

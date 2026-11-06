@@ -215,6 +215,11 @@ fun SmsScreen(vm: ContactsViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
+            Spacer(Modifier.height(14.dp))
+
+            // 骚扰拦截箱等厂商私有消息读不到、也删不掉，统计数字与短信 App 可能不一致
+            VendorLimitNotice()
+
             Spacer(Modifier.height(16.dp))
 
             Text(

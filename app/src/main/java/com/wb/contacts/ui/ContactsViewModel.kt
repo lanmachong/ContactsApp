@@ -171,10 +171,48 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var systemScanned by mutableStateOf(false)
         private set
-    var busy by mutableStateOf(false)
-        private set
+    /**
+     * 是否有耗时任务在执行。
+     *
+     * 置为 true 时自动重置计时与进度 —— 这样所有调用点只要写 `busy = true`
+     * 就能拿到干净的起始状态，不用各自记得清字段。
+     */
+    private var _busy by mutableStateOf(false)
+    var busy: Boolean
+        get() = _busy
+        private set(value) {
+            if (_busy == value) return
+            _busy = value
+            if (value) {
+                busyStartedAt = System.currentTimeMillis()
+                busyDone = 0
+                busyTotal = 0
+                busyPhase = ""
+                busyEstimateSeconds = 0
+            }
+        }
+
     var busyText by mutableStateOf("")
         private set
+
+    /** 当前阶段说明，例如「正在加密写入短信…」，会实时变化，让用户知道没卡死 */
+    var busyPhase by mutableStateOf("")
+        private set
+
+    /** 已完成条数；total <= 0 表示这项任务暂时拿不到总量 */
+    var busyDone by mutableStateOf(0)
+        private set
+    var busyTotal by mutableStateOf(0)
+        private set
+
+    /** 任务开始时刻（毫秒），UI 用它算已用时间与剩余时间 */
+    var busyStartedAt by mutableStateOf(0L)
+        private set
+
+    /** 拿不到实测进度时用的粗估总时长（秒），仅用于兜底倒计时 */
+    var busyEstimateSeconds by mutableStateOf(0)
+        private set
+
     var resultDialog by mutableStateOf<ResultDialog?>(null)
         private set
 
@@ -367,6 +405,40 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         resultDialog = null
     }
 
+    // ————————————————— 耗时任务的忙态 / 进度 —————————————————
+
+    /**
+     * 开启耗时任务。
+     *
+     * 所有备份 / 还原 / 清空 / 导出都走这里，界面上会弹出一个全屏模态进度层，
+     * 期间点不到别的地方、返回键也被吃掉 —— 以前只有首页画了个小转圈，
+     * 在备份页和还原页上数据一多就像「点了没反应」。
+     *
+     * @param estimateSeconds 拿不到实测进度时的粗估总时长，只用于兜底倒计时
+     */
+    private fun startBusy(titleRes: Int, phaseRes: Int, estimateSeconds: Int) {
+        busyText = context.getString(titleRes)
+        busy = true   // setter 会清零进度字段，所以下面三个必须放在它之后
+        busyPhase = context.getString(phaseRes)
+        busyEstimateSeconds = estimateSeconds
+    }
+
+    private fun endBusy() {
+        busy = false
+        busyText = ""
+        busyPhase = ""
+    }
+
+    /**
+     * 上报进度。Compose 的 mutableStateOf 写入是线程安全的，
+     * 所以可以直接从 IO 协程里调，不必切回主线程（切了反而会滞后）。
+     */
+    private fun reportBusy(done: Int, total: Int, phase: String? = null) {
+        busyDone = done
+        busyTotal = total
+        if (phase != null) busyPhase = phase
+    }
+
     // ————————————————— 导入系统通讯录 —————————————————
 
     /**
@@ -384,14 +456,12 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         if (busy) return
-        busy = true
-        busyText = context.getString(R.string.busy_compare_dup)
+        startBusy(R.string.busy_compare_dup, R.string.busy_phase_prepare, 10)
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching { applyDuplicateTags() }
             }
-            busy = false
-            busyText = ""
+            endBusy()
             outcome.onSuccess { (tagged, untagged, dupCount) ->
                 refresh()
                 resultDialog = ResultDialog(
@@ -487,8 +557,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         if (busy) return
-        busy = true
-        busyText = context.getString(R.string.busy_read_contacts)
+        startBusy(R.string.busy_read_contacts, R.string.busy_phase_read_contacts, 15)
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
@@ -527,12 +596,17 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
                     // —— 第二步：逐人比对，新面孔插入，已存在的按系统内容补全 ——
                     val sys = SystemContacts.readAll(context)
+                    val contactTotal = sys.size
+                    reportBusy(
+                        0, contactTotal,
+                        context.getString(R.string.busy_phase_import_contacts)
+                    )
                     val now = System.currentTimeMillis()
                     var imported = 0
                     var updatedCount = 0
                     var unchanged = 0
 
-                    sys.forEach { person ->
+                    sys.forEachIndexed { idx, person ->
                         val numbers = person.phones
                             .map { it.trim() }
                             .filter { PhoneText.digits(it).isNotEmpty() }
@@ -583,6 +657,10 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                             person.rawIds.forEach { ownerOfRawId[it] = contact }
                             imported++
                         }
+                        // 每 20 条刷一次，太频繁会让重组拖慢导入本身
+                        if (idx % 20 == 0 || idx == contactTotal - 1) {
+                            reportBusy(idx + 1, contactTotal)
+                        }
                     }
 
                     val noPhone = sys.count { person ->
@@ -601,8 +679,7 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
 
-            busy = false
-            busyText = ""
+            endBusy()
             outcome.onSuccess { result ->
                 // 导入完顺手标一次重复，用户不用再手动点
                 val (tagged, _, dupCount) = runCatching { applyDuplicateTags() }
@@ -723,14 +800,26 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
         val targets = clearTargets.toList()
         val direction = clearDirection
-        busy = true
-        busyText = context.getString(R.string.busy_clear_data)
+        startBusy(R.string.busy_clear_data, R.string.busy_phase_prepare, 20)
         viewModelScope.launch {
             val results = withContext(Dispatchers.IO) {
-                targets.map { target -> clearOne(target, direction) }
+                targets.mapIndexed { idx, target ->
+                    reportBusy(
+                        idx, targets.size,
+                        context.getString(
+                            when (target) {
+                                ClearTarget.CONTACTS -> R.string.busy_phase_clear_contacts
+                                ClearTarget.SMS -> R.string.busy_phase_clear_sms
+                                ClearTarget.CALLS -> R.string.busy_phase_clear_calls
+                            }
+                        )
+                    )
+                    val result = clearOne(target, direction)
+                    reportBusy(idx + 1, targets.size)
+                    result
+                }
             }
-            busy = false
-            busyText = ""
+            endBusy()
             // 无论删的是哪一边，界面上的计数都要重新拉一遍
             refresh()
             refreshClearCounts()
@@ -1037,14 +1126,25 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         if (busy) return
 
         val targets = restoreTargets.toList()
-        busy = true
-        busyText = context.getString(R.string.busy_restore_data)
+        startBusy(R.string.busy_restore_data, R.string.busy_phase_prepare, 30)
         viewModelScope.launch {
             val results = withContext(Dispatchers.IO) {
-                targets.map { target -> restoreOne(target) }
+                targets.mapIndexed { idx, target ->
+                    reportBusy(
+                        idx, targets.size,
+                        context.getString(
+                            when (target) {
+                                RestoreTarget.CONTACTS -> R.string.busy_phase_restore_contacts
+                                RestoreTarget.SMS -> R.string.busy_phase_restore_sms
+                            }
+                        )
+                    )
+                    val result = restoreOne(target)
+                    reportBusy(idx + 1, targets.size)
+                    result
+                }
             }
-            busy = false
-            busyText = ""
+            endBusy()
             // 系统里的条数变了，重新拉一遍
             refresh()
             refreshClearCounts()
@@ -1192,14 +1292,14 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             toast = context.getString(R.string.err_empty_export)
             return
         }
-        busy = true
-        busyText = context.getString(R.string.busy_export_backup)
+        startBusy(R.string.busy_export_backup, R.string.busy_phase_export_csv, 15)
         viewModelScope.launch {
+            reportBusy(0, all.size)
             val count = withContext(Dispatchers.IO) {
                 runCatching { SystemContacts.exportCsv(context, uri, all) }.getOrDefault(-1)
             }
-            busy = false
-            busyText = ""
+            reportBusy(all.size, all.size, context.getString(R.string.busy_phase_finish))
+            endBusy()
             if (count < 0) {
                 toast = context.getString(R.string.toast_export_failed)
             } else {
@@ -1253,11 +1353,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         if (busy) return
-        busy = true
-        busyText = context.getString(R.string.busy_read_sms)
+        startBusy(R.string.busy_read_sms, R.string.busy_phase_read_sms, 30)
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
+                    reportBusy(0, 0, context.getString(R.string.busy_phase_prepare))
                     val known = HashSet<Long>()
                     // 先把库里的系统 id 读出来，避免重复导入产生副本
                     var offset = 0
@@ -1269,13 +1369,16 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                     }
 
                     val sys = SystemSms.readAll(context)
+                    // 最后一步「加密批量写库」也算一个进度单位，别让界面停在 99% 没动静
+                    val smsTotal = sys.size + 1
+                    reportBusy(0, smsTotal, context.getString(R.string.busy_phase_import_sms))
                     val now = System.currentTimeMillis()
                     val pending = ArrayList<SmsMessage>()
                     var skipped = 0
-                    sys.forEach { s ->
+                    sys.forEachIndexed { idx, s ->
                         if (s.id in known) {
                             skipped++
-                            return@forEach
+                            return@forEachIndexed
                         }
                         pending.add(
                             SmsMessage(
@@ -1290,13 +1393,20 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                                 createdAt = now
                             )
                         )
+                        if (idx % 100 == 0 || idx == sys.lastIndex) {
+                            reportBusy(idx + 1, smsTotal)
+                        }
                     }
+                    reportBusy(
+                        smsTotal - 1, smsTotal,
+                        context.getString(R.string.busy_phase_encrypt_write)
+                    )
                     val inserted = archiveRepo.smsTable.insertMany(pending)
+                    reportBusy(smsTotal, smsTotal, context.getString(R.string.busy_phase_finish))
                     Triple(sys.size, inserted, skipped)
                 }
             }
-            busy = false
-            busyText = ""
+            endBusy()
             outcome.onSuccess { (total, inserted, skipped) ->
                 loadSms()
                 resultDialog = ResultDialog(
@@ -1326,16 +1436,19 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             toast = context.getString(R.string.err_no_sms_export)
             return
         }
-        busy = true
-        busyText = context.getString(R.string.busy_export_sms_backup)
+        startBusy(R.string.busy_export_sms_backup, R.string.busy_phase_export_csv, 20)
         viewModelScope.launch {
+            val total = localSmsCount
+            reportBusy(0, total)
             val count = withContext(Dispatchers.IO) {
                 runCatching {
-                    CsvExporter.exportSms(context, uri, archiveRepo.smsTable)
+                    CsvExporter.exportSms(context, uri, archiveRepo.smsTable) { written ->
+                        reportBusy(written, total)
+                    }
                 }.getOrDefault(-1)
             }
-            busy = false
-            busyText = ""
+            reportBusy(total, total, context.getString(R.string.busy_phase_finish))
+            endBusy()
             if (count < 0) {
                 toast = context.getString(R.string.toast_export_failed)
             } else {
@@ -1380,11 +1493,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         if (busy) return
-        busy = true
-        busyText = context.getString(R.string.busy_read_calllog)
+        startBusy(R.string.busy_read_calllog, R.string.busy_phase_read_calls, 20)
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
+                    reportBusy(0, 0, context.getString(R.string.busy_phase_prepare))
                     val known = HashSet<Long>()
                     var offset = 0
                     while (true) {
@@ -1395,13 +1508,15 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                     }
 
                     val sys = SystemCallLog.readAll(context)
+                    val callTotal = sys.size + 1
+                    reportBusy(0, callTotal, context.getString(R.string.busy_phase_import_calls))
                     val now = System.currentTimeMillis()
                     val pending = ArrayList<CallRecord>()
                     var skipped = 0
-                    sys.forEach { c ->
+                    sys.forEachIndexed { idx, c ->
                         if (c.id in known) {
                             skipped++
-                            return@forEach
+                            return@forEachIndexed
                         }
                         pending.add(
                             CallRecord(
@@ -1414,13 +1529,20 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                                 createdAt = now
                             )
                         )
+                        if (idx % 100 == 0 || idx == sys.lastIndex) {
+                            reportBusy(idx + 1, callTotal)
+                        }
                     }
+                    reportBusy(
+                        callTotal - 1, callTotal,
+                        context.getString(R.string.busy_phase_encrypt_write)
+                    )
                     val inserted = archiveRepo.callTable.insertMany(pending)
+                    reportBusy(callTotal, callTotal, context.getString(R.string.busy_phase_finish))
                     Triple(sys.size, inserted, skipped)
                 }
             }
-            busy = false
-            busyText = ""
+            endBusy()
             outcome.onSuccess { (total, inserted, skipped) ->
                 loadCallLog()
                 resultDialog = ResultDialog(
@@ -1449,16 +1571,19 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
             toast = context.getString(R.string.err_no_calls_export)
             return
         }
-        busy = true
-        busyText = context.getString(R.string.busy_export_calls_backup)
+        startBusy(R.string.busy_export_calls_backup, R.string.busy_phase_export_csv, 15)
         viewModelScope.launch {
+            val total = localCallCount
+            reportBusy(0, total)
             val count = withContext(Dispatchers.IO) {
                 runCatching {
-                    CsvExporter.exportCalls(context, uri, archiveRepo.callTable)
+                    CsvExporter.exportCalls(context, uri, archiveRepo.callTable) { written ->
+                        reportBusy(written, total)
+                    }
                 }.getOrDefault(-1)
             }
-            busy = false
-            busyText = ""
+            reportBusy(total, total, context.getString(R.string.busy_phase_finish))
+            endBusy()
             if (count < 0) {
                 toast = context.getString(R.string.toast_export_failed)
             } else {

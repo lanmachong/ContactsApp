@@ -249,6 +249,11 @@ fun RestoreDataScreen(vm: ContactsViewModel) {
                 stringResource(R.string.restore_data_warning_body)
             )
 
+            Spacer(Modifier.height(14.dp))
+
+            // 统计条数只覆盖系统公共库，厂商拦截箱不计入 —— 提前说清，别让数字对不上变成误会
+            VendorLimitNotice()
+
             Spacer(Modifier.height(32.dp))
         }
     }

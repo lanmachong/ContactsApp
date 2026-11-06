@@ -210,7 +210,7 @@
     <string name="about_feature_crypto_title">加密存储</string>
     <string name="about_feature_crypto_desc">密钥由系统 Keystore 生成，永不落盘、不可导出；数据库被拷走也读不出内容</string>
     <string name="about_feature_sms_title">短信备份</string>
-    <string name="about_feature_sms_desc">文字短信整体加密入库，可查看、可导出 CSV；写回或清空系统短信需要先成为默认短信应用，用完请手动切回原来的应用。彩信正文不入库</string>
+    <string name="about_feature_sms_desc">文字短信整体加密入库，可查看、可导出 CSV；写回或清空系统短信需要先成为默认短信应用，用完请手动切回原来的应用。彩信正文不入库；骚扰拦截箱属厂商私有库，需系统签名权限，本应用无法读取或删除</string>
     <string name="about_feature_call_title">通话记录备份</string>
     <string name="about_feature_call_desc">通话记录加密留存，号码与时长不落明文，随时能查能导出；可以清空系统里的记录，但写不回手机通话记录</string>
     <string name="about_feature_caller_title">来电识别</string>
@@ -437,9 +437,10 @@
 · 通讯录若来自云端账户，删除可能同步到云端
 · 清空系统短信会删掉系统里全部文字短信和彩信，包括刚还原回去的
 · 彩信正文不在本应用的加密备份里，删除后无法恢复，请先自行另存
-· 清空完成后才收到的新短信不会被追删；另一张 SIM 卡、SIM 卡内短信、RCS / 服务号卡片消息也可能看不到，需在短信应用里手动删
+· 清空完成后才收到的新短信不会被追删；骚扰拦截箱 / 垃圾短信等厂商私有库消息本应用读不到也删不掉，需手动删（见下方说明）
 · 清空系统短信需要默认短信应用身份；清空系统通话记录需要 WRITE_CALL_LOG 权限，个别机型会拒绝，删不掉会如实回报
-· 清空本应用里的加密副本不受系统限制，三项都能清</string>
+· 清空本应用里的加密副本不受系统限制，三项都能清
+· 数据量较大时会弹出全屏进度层，完成前请勿关闭软件或切到后台</string>
     <string name="clear_data_sms_system_note">需要本应用是「默认短信应用」才能删；文字短信和彩信都会清，设为默认后记得在操作完切回原来的短信应用</string>
     <string name="clear_data_calls_system_note">需要通话记录写入权限；删除后会回读条数确认，删不掉会如实说明</string>
     <string name="clear_data_sms_role_title">还需要默认短信应用身份</string>
@@ -456,9 +457,9 @@
     <string name="clear_data_sms_subs">剩余文字短信按 SIM 订阅分组：%1$s</string>
     <string name="clear_data_sms_sub_item">%1$s：%2$d 条</string>
     <string name="clear_data_sms_sub_unknown">未标注 SIM 卡（sub_id = -1）</string>
-    <string name="clear_data_sms_manual_hint">短信应用里若仍显示消息，可能是：本应用看不到的另一张 SIM 卡 / SIM 卡内短信、RCS 或服务号卡片消息（存在厂商私有库），以及清空之后才收到的新短信（不会追删），这些需在短信应用里手动删。v1.8.4 起新短信会写入 SIM 卡标识、删除改为逐条精确删；旧版遗留的「无标识」短信请再执行一次清空即可删掉。</string>
+    <string name="clear_data_sms_manual_hint">短信 App 里若仍显示消息，最常见的是骚扰拦截箱 / 垃圾短信：它们存在厂商私有数据库，读写需要厂商系统签名权限，第三方应用拿不到，即使设为默认短信应用也一样。这部分不是本应用故障，各家 ROM 的规则也不同，只能到短信 App 的拦截箱里手动清空。此外，清空之后才收到的新短信不会被追删，个别 ROM 还会过滤公共短信库的查询，导致统计条数少于短信 App 里看到的。</string>
     <string name="clear_data_hint_contacts">通讯录若来自云端账户，删除可能同步到云端。</string>
-    <string name="clear_data_hint_sms">没删干净时请看下面的分类明细：彩信、另一张 SIM 卡、SIM 卡内短信、RCS / 服务号卡片消息，以及清空后新收到的短信，都可能需要到短信应用里手动删。</string>
+    <string name="clear_data_hint_sms">没删干净时请看分类明细；骚扰拦截箱等厂商私有库消息受系统签名权限限制，本应用读不到也删不掉，只能手动清。</string>
     <string name="clear_data_hint_calls">没拿到 WRITE_CALL_LOG 权限时系统不让删；先授予权限再试。个别 ROM 始终拒绝的话，只能在自带电话 App 里手动清。</string>
     <string name="clear_data_local_kept">本应用内的加密副本没有受到影响。</string>
     <string name="clear_data_system_kept">手机系统里的原始数据没有受到影响。</string>
@@ -534,5 +535,36 @@
     <string name="csv_contacts_header">姓名,手机号,备用号码,分组,标签,备注,收藏</string>
     <string name="csv_sms_header">时间,号码,方向,状态,已读,内容</string>
     <string name="csv_calls_header">时间,号码,姓名,类型,时长(秒)</string>
+
+    <string name="vendor_limit_title">为什么短信清不干净？</string>
+    <string name="vendor_limit_body">这不是本应用故障。部分手机厂商把骚扰拦截、垃圾短信、服务号卡片等消息存进自家私有数据库，读写需要厂商系统签名权限（signature|privileged）；第三方应用即使获得 READ_SMS / WRITE_SMS、即使设为「默认短信应用」，系统也不会授予这个权限。各家 ROM 规则不同：有的完全隔离，有的连公共短信库的查询都做了过滤。因此本应用统计的系统短信只覆盖系统公共库，与短信 App 里看到的数量可能不一致。</string>
+    <string name="vendor_limit_path">请到短信 App 的「骚扰拦截 / 垃圾信息 / 拦截记录」里手动清空（ColorOS、MIUI、鸿蒙、OriginOS 入口名称各不相同）；建议关闭「智能识别垃圾短信」或把常用发件号加入白名单，否则新消息还会继续堆积。</string>
+
+    <string name="busy_overlay_progress">已处理 %1$d / %2$d</string>
+    <string name="busy_overlay_elapsed">已用 %1$s</string>
+    <string name="busy_overlay_eta">预计还需 %1$s</string>
+    <string name="busy_overlay_estimating">正在估算剩余时间…</string>
+    <string name="busy_overlay_eta_overdue">已超出预估，仍在处理，请继续等待</string>
+    <string name="busy_overlay_eta_note">时间预估仅供参考，数据量大或系统繁忙时会延长</string>
+    <string name="busy_overlay_no_close">请勿关闭本软件、切到后台或强制停止，否则正在写入的数据可能中断</string>
+
+    <string name="busy_phase_prepare">正在准备数据…</string>
+    <string name="busy_phase_read_contacts">正在读取系统通讯录…</string>
+    <string name="busy_phase_import_contacts">正在比对并加密写入通讯录…</string>
+    <string name="busy_phase_read_sms">正在读取系统短信…</string>
+    <string name="busy_phase_import_sms">正在整理短信并加密…</string>
+    <string name="busy_phase_read_calls">正在读取系统通话记录…</string>
+    <string name="busy_phase_import_calls">正在整理通话记录并加密…</string>
+    <string name="busy_phase_encrypt_write">正在批量加密写入数据库…</string>
+    <string name="busy_phase_export_csv">正在逐页解密并写出 CSV…</string>
+    <string name="busy_phase_finish">正在整理结果…</string>
+    <string name="busy_phase_clear_contacts">正在清空通讯录…</string>
+    <string name="busy_phase_clear_sms">正在清空短信与彩信…</string>
+    <string name="busy_phase_clear_calls">正在清空通话记录…</string>
+    <string name="busy_phase_restore_contacts">正在写回通讯录…</string>
+    <string name="busy_phase_restore_sms">正在写回短信…</string>
+
+    <string name="about_update_v1_8_5">v1.8.5</string>
+    <string name="about_update_v1_8_5_desc">备份、还原、清空期间加全屏进度遮罩，显示阶段、进度与预计剩余时间，完成前禁止操作其他界面；界面补上骚扰拦截短信受厂商签名权限限制的说明</string>
 
 </resources>
