@@ -12,7 +12,8 @@ import kotlinx.coroutines.withContext
 
 class ContactsRepository(context: Context) {
 
-    private val helper = ContactsDbHelper(context.applicationContext)
+    private val appContext = context.applicationContext
+    private val helper = ContactsDbHelper(appContext)
 
     /**
      * 内存缓存。
@@ -34,6 +35,9 @@ class ContactsRepository(context: Context) {
             cache?.let { return it }
             val result = readAllFromDb()
             cache = result
+            // 每次全库解密后刷新来电索引文件（指纹未变则跳过），
+            // 保证任何数据变更后索引都是最新的，冷启动来电能秒级加载。
+            CallerIndexStore.maybeSave(appContext, result)
             return result
         } finally {
             loadMutex.unlock()

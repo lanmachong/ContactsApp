@@ -312,7 +312,9 @@ object SystemContacts {
     }
 
     private fun escape(value: String): String {
-        val text = value.replace("\"", "\"\"")
+        var text = value.replace("\"", "\"\"")
+        // 防 CSV 公式注入：姓名/备注/号码均可来自外部，= + - @ 开头会被表格软件当公式执行
+        if (text.isNotEmpty() && text.first() in "=+-@\t\r") text = "'$text"
         return if (text.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"$text\"" else text
     }
 }

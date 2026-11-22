@@ -421,7 +421,7 @@ fun ContactRow(contact: Contact, onClick: () -> Unit, onToggleFavorite: () -> Un
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Avatar(contact.name, 44.dp)
+            AnimalAvatar(contact, 44.dp)
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

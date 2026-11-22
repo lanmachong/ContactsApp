@@ -150,19 +150,19 @@
         <item quantity="other">当前可识别 %1$d 位联系人的号码</item>
     </plurals>
     <string name="callsettings_toggle">开启来电识别</string>
-    <string name="callsettings_toggle_on">前台服务运行中，来电时会自动弹出悬浮窗</string>
-    <string name="callsettings_toggle_off">开启后会常驻一个低优先级通知，保证进程不被系统回收</string>
-    <string name="callsettings_perm_overlay">显示在其他应用上层</string>
-    <string name="callsettings_perm_overlay_desc">悬浮窗必须的权限</string>
-    <string name="callsettings_perm_screening">来电显示和骚扰拦截</string>
-    <string name="callsettings_perm_screening_granted">已授权，可在振铃瞬间拿到号码</string>
-    <string name="callsettings_perm_screening_need">Android 10 起需要授予该角色才能读取来电号码</string>
+    <string name="callsettings_toggle_on">已开启，来电时在屏幕上方显示头像和名字</string>
+    <string name="callsettings_toggle_off">未开启，来电时不显示卡片</string>
+    <string name="callsettings_perm_accessibility">无障碍浮层</string>
+    <string name="callsettings_perm_accessibility_granted">已开启，锁屏来电可显示卡片</string>
+    <string name="callsettings_perm_accessibility_need">未开启 · 锁屏来电时不显示卡片</string>
+    <string name="callsettings_perm_overlay_optional">显示在其他应用上层（可选）</string>
+    <string name="callsettings_perm_overlay_optional_desc">仅用于无障碍未开启时的兜底显示与卡片预览</string>
     <string name="callsettings_perm_notification">通知权限</string>
-    <string name="callsettings_perm_notification_desc">用于显示「来电识别已开启」的常驻通知</string>
+    <string name="callsettings_perm_notification_desc">用于备份 / 还原的进度通知</string>
     <string name="callsettings_perm_phone_state">通话状态权限</string>
-    <string name="callsettings_perm_phone_state_desc">挂断后自动撤掉悬浮窗</string>
-    <string name="callsettings_preview">预览悬浮窗效果</string>
-    <string name="callsettings_note">说明：本应用只读取号码做匹配，不录音、不上传、不拦截来电。关闭开关后前台服务和悬浮窗都会停止。</string>
+    <string name="callsettings_perm_phone_state_desc">读取来电与挂断状态，挂断后自动撤掉卡片</string>
+    <string name="callsettings_preview">预览卡片效果</string>
+    <string name="callsettings_note">说明：本应用只读取号码做匹配，不录音、不上传、不拦截来电。卡片由本应用的无障碍服务绘制，不读取屏幕内容；关闭开关后不再显示卡片。</string>
 
     <!-- ==================== 联系人详情 ==================== -->
     <string name="detail_title">联系人</string>
@@ -577,7 +577,42 @@
     <string name="work_notify_running">正在准备数据，请勿关闭软件…</string>
     <string name="work_notify_progress">已处理 %1$d / %2$d</string>
 
+    <string name="about_update_v1_8_8">v1.8.8</string>
+    <string name="about_update_v1_8_8_desc">修复分页读取时个别记录解密失败导致后续数据被跳过的问题；导出的 CSV 增加公式注入防护；会话密钥改为可靠落盘，避免崩溃后数据无法解密；来电识别不再阻塞接通；来电悬浮窗改为顶部紧凑横幅，不遮挡接听挂断，8 秒无操作自动消失，锁屏不显示联系人备注</string>
+
     <string name="about_update_v1_8_7">v1.8.7</string>
     <string name="about_update_v1_8_7_desc">备份、还原、清空改为前台服务保活并持有 CPU 锁，熄屏或锁屏后仍可继续写入，通知栏实时显示进度；短信写回改为批量插入与批量回读校验，通讯录导入改为并发加密加单事务写入，大批量处理不再逐条串行</string>
+
+    <!-- ==================== v1.9.0 来电头像 ==================== -->
+    <string name="avatar_name_cat">猫咪</string>
+    <string name="avatar_name_dog">狗狗</string>
+    <string name="avatar_name_rabbit">兔子</string>
+    <string name="avatar_name_panda">熊猫</string>
+    <string name="avatar_name_fox">狐狸</string>
+    <string name="avatar_name_bear">小熊</string>
+    <string name="avatar_name_penguin">企鹅</string>
+    <string name="avatar_name_frog">青蛙</string>
+    <string name="avatar_name_tiger">老虎</string>
+    <string name="avatar_name_lion">狮子</string>
+    <string name="avatar_picker_title">选择来电头像</string>
+    <string name="avatar_picker_desc">给「%1$s」挑一只动物，来电时会显示它的头像，一眼就能认出是谁</string>
+    <string name="detail_tap_avatar_hint">点头像可更换</string>
+    <string name="toast_avatar_saved">头像已更新</string>
+
+    <string name="accessibility_service_label">通讯录 · 来电卡片</string>
+    <string name="accessibility_service_desc">仅在来电时于屏幕上方显示联系人的头像和姓名。本服务不读取、不记录、不上传屏幕上的任何内容。</string>
+
+    <string name="about_update_v1_9_5">v1.9.5</string>
+    <string name="about_update_v1_9_5_desc">来电识别改由本应用自行监听，锁屏卡片稳定显示；不再索要「来电显示和骚扰拦截」角色、不再常驻前台服务，权限按要求最小化</string>
+    <string name="about_update_v1_9_4">v1.9.4</string>
+    <string name="about_update_v1_9_4_desc">锁屏来电卡片改用无障碍浮层，可稳定显示在系统来电界面之上；无障碍服务独立进程常驻，来电识别恢复为每次冷启动；新增无障碍权限自检与引导</string>
+    <string name="about_update_v1_9_3">v1.9.3</string>
+    <string name="about_update_v1_9_3_desc">修复锁屏来电卡片被系统来电界面瞬间盖住的问题（卡片只闪现 0.2 秒）：改为等系统界面就位后再显示，被覆盖时自动重新置顶</string>
+    <string name="about_update_v1_9_2">v1.9.2</string>
+    <string name="about_update_v1_9_2_desc">修复锁屏来电卡片不显示的问题（透明窗口焦点标志导致卡片无法绘制），锁屏解锁都能可靠看到头像和姓名</string>
+    <string name="about_update_v1_9_1">v1.9.1</string>
+    <string name="about_update_v1_9_1_desc">修复锁屏下来电卡片刚弹出就被关闭的问题；来电卡片精简为只有头像和姓名，接通或挂断后自动消失</string>
+    <string name="about_update_v1_9_0">v1.9.0</string>
+    <string name="about_update_v1_9_0_desc">来电识别配上 10 款可爱动物头像：随机分配、可在联系人里更换，头像带呼吸动画；锁屏来电改用全屏可见的展示页，解锁与锁屏都能看到头像和姓名</string>
 
 </resources>

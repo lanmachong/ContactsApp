@@ -31,6 +31,14 @@ data class Contact(
      * 必须全部记住，否则清理时只删掉其中一条，人还在系统里。
      */
     val sourceRawIds: List<Long> = emptyList(),
+    /**
+     * 来电识别用的动物头像序号（0..9）。-1 表示未设置。
+     *
+     * 未设置时不写死，而是由 [AvatarCatalog.resolve] 按号码 / id 稳定映射，
+     * 这样老用户升级后每个联系人自动分到一款头像、且不会每次显示都变化。
+     * 用户在联系人页手动改过后写入具体值，优先级高于自动映射。
+     */
+    val avatarId: Int = -1,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 ) {
@@ -49,6 +57,7 @@ data class Contact(
         put("favorite", favorite)
         put("isDuplicate", duplicate)
         put("rawIds", JSONArray(sourceRawIds))
+        put("avatarId", avatarId)
         put("createdAt", createdAt)
         put("updatedAt", updatedAt)
     }.toString()
@@ -75,6 +84,7 @@ data class Contact(
                 favorite = o.optBoolean("favorite"),
                 duplicate = o.optBoolean("isDuplicate") || legacyDuplicate,
                 sourceRawIds = readRawIds(o),
+                avatarId = o.optInt("avatarId", -1),
                 createdAt = o.optLong("createdAt", System.currentTimeMillis()),
                 updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
             )

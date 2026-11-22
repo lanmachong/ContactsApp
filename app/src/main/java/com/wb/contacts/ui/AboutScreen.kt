@@ -130,12 +130,36 @@ fun AboutScreen(vm: ContactsViewModel) {
             )
             Spacer(Modifier.height(8.dp))
             UpdateNote(
-                version = stringResource(R.string.about_update_v1_8_7),
-                desc = stringResource(R.string.about_update_v1_8_7_desc)
+                version = stringResource(R.string.about_update_v1_9_5),
+                desc = stringResource(R.string.about_update_v1_9_5_desc)
             )
             UpdateNote(
-                version = stringResource(R.string.about_update_v1_8_6),
-                desc = stringResource(R.string.about_update_v1_8_6_desc)
+                version = stringResource(R.string.about_update_v1_9_4),
+                desc = stringResource(R.string.about_update_v1_9_4_desc)
+            )
+            UpdateNote(
+                version = stringResource(R.string.about_update_v1_9_3),
+                desc = stringResource(R.string.about_update_v1_9_3_desc)
+            )
+            UpdateNote(
+                version = stringResource(R.string.about_update_v1_9_2),
+                desc = stringResource(R.string.about_update_v1_9_2_desc)
+            )
+            UpdateNote(
+                version = stringResource(R.string.about_update_v1_9_1),
+                desc = stringResource(R.string.about_update_v1_9_1_desc)
+            )
+            UpdateNote(
+                version = stringResource(R.string.about_update_v1_9_0),
+                desc = stringResource(R.string.about_update_v1_9_0_desc)
+            )
+            UpdateNote(
+                version = stringResource(R.string.about_update_v1_8_8),
+                desc = stringResource(R.string.about_update_v1_8_8_desc)
+            )
+            UpdateNote(
+                version = stringResource(R.string.about_update_v1_8_7),
+                desc = stringResource(R.string.about_update_v1_8_7_desc)
             )
 
             Spacer(Modifier.height(20.dp))

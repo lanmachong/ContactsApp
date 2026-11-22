@@ -53,38 +53,53 @@ class SecureTable<T>(
         }
     }
 
+    /** 一页的读取结果：[items] 是解密成功的记录，[rowsRead] 是本页从数据库实际读到的行数。 */
+    data class PageResult<T>(val items: List<T>, val rowsRead: Int)
+
     /**
      * 分页读取：先取这一页的密文，再并发解密。
      * 解密失败（数据损坏 / 密钥变更）只丢这一条，不影响整页。
      */
-    suspend fun page(offset: Int, limit: Int): List<T> = withContext(Dispatchers.IO) {
-        if (limit <= 0) return@withContext emptyList()
-        val rows = ArrayList<Pair<Long, ByteArray>>()
-        helper.readableDatabase.query(
-            table,
-            arrayOf(ContactsDbHelper.COL_ID, ContactsDbHelper.COL_PAYLOAD),
-            null, null, null, null,
-            "${ContactsDbHelper.COL_ID} DESC LIMIT $offset, $limit"
-        ).use { c ->
-            val idIndex = c.getColumnIndexOrThrow(ContactsDbHelper.COL_ID)
-            val payloadIndex = c.getColumnIndexOrThrow(ContactsDbHelper.COL_PAYLOAD)
-            while (c.moveToNext()) {
-                val id = c.getLong(idIndex)
-                val payload = c.getBlob(payloadIndex) ?: continue
-                rows.add(id to payload)
-            }
-        }
-        if (rows.isEmpty()) return@withContext emptyList()
+    suspend fun page(offset: Int, limit: Int): List<T> = pageWithRows(offset, limit).items
 
-        withContext(Dispatchers.Default) {
-            val gate = Semaphore(DECRYPT_CONCURRENCY)
-            rows.map { (id, payload) ->
-                async {
-                    gate.withPermit { runCatching { decrypt(payload, id) }.getOrNull() }
+    /**
+     * 与 [page] 相同，但额外返回本页实际读到的数据库行数。
+     *
+     * 遍历整表时必须用 [PageResult.rowsRead] 推进 offset，绝不能用 items.size：
+     * [page] 内部会 filterNotNull 丢掉解密失败的记录，items.size 可能小于真实读取行数，
+     * 用它推进会导致 offset 落后 → 重复读取，甚至在「整页都解密失败」时提前终止遍历。
+     */
+    private suspend fun pageWithRows(offset: Int, limit: Int): PageResult<T> =
+        withContext(Dispatchers.IO) {
+            if (limit <= 0) return@withContext PageResult(emptyList(), 0)
+            val rows = ArrayList<Pair<Long, ByteArray>>()
+            helper.readableDatabase.query(
+                table,
+                arrayOf(ContactsDbHelper.COL_ID, ContactsDbHelper.COL_PAYLOAD),
+                null, null, null, null,
+                "${ContactsDbHelper.COL_ID} DESC LIMIT $offset, $limit"
+            ).use { c ->
+                val idIndex = c.getColumnIndexOrThrow(ContactsDbHelper.COL_ID)
+                val payloadIndex = c.getColumnIndexOrThrow(ContactsDbHelper.COL_PAYLOAD)
+                while (c.moveToNext()) {
+                    val id = c.getLong(idIndex)
+                    val payload = c.getBlob(payloadIndex) ?: continue
+                    rows.add(id to payload)
                 }
-            }.awaitAll().filterNotNull()
+            }
+            val rowsRead = rows.size
+            if (rows.isEmpty()) return@withContext PageResult(emptyList(), 0)
+
+            val items = withContext(Dispatchers.Default) {
+                val gate = Semaphore(DECRYPT_CONCURRENCY)
+                rows.map { (id, payload) ->
+                    async {
+                        gate.withPermit { runCatching { decrypt(payload, id) }.getOrNull() }
+                    }
+                }.awaitAll().filterNotNull()
+            }
+            PageResult(items, rowsRead)
         }
-    }
 
     /**
      * 逐页遍历整表。
@@ -95,11 +110,13 @@ class SecureTable<T>(
     suspend fun forEachPage(pageSize: Int = 500, onPage: suspend (List<T>) -> Unit) {
         var offset = 0
         while (true) {
-            val chunk = page(offset, pageSize)
-            if (chunk.isEmpty()) break
-            onPage(chunk)
-            offset += chunk.size
-            if (chunk.size < pageSize) break
+            val result = pageWithRows(offset, pageSize)
+            if (result.rowsRead == 0) break
+            // 整页都解密失败时 items 为空但 rowsRead > 0：offset 仍必须按真实行数推进，
+            // 不能靠 items.isEmpty() 提前 break，否则后续页全部漏掉。
+            if (result.items.isNotEmpty()) onPage(result.items)
+            offset += result.rowsRead
+            if (result.rowsRead < pageSize) break
         }
     }
 

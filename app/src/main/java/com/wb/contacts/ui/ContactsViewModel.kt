@@ -222,8 +222,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var overlayAllowed by mutableStateOf(false)
         private set
-    var screeningRoleHeld by mutableStateOf(false)
-        private set
 
     // ——— 短信 / 通话记录 ———
     var smsMessages by mutableStateOf<List<SmsMessage>>(emptyList())
@@ -371,6 +369,17 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 contact.copy(favorite = !contact.favorite, updatedAt = System.currentTimeMillis())
             )
             refresh()
+        }
+    }
+
+    /** 更换联系人的来电动物头像。写回加密库后 refresh() 会同步刷新来电索引 */
+    fun setAvatar(contact: Contact, avatarId: Int) {
+        workScope.launch {
+            repo.update(
+                contact.copy(avatarId = avatarId, updatedAt = System.currentTimeMillis())
+            )
+            refresh()
+            toast = context.getString(R.string.toast_avatar_saved)
         }
     }
 
@@ -1503,13 +1512,11 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 runCatching {
                     reportBusy(0, 0, context.getString(R.string.busy_phase_read_sms))
                     val known = HashSet<Long>()
-                    // 先把库里的系统 id 读出来，避免重复导入产生副本
-                    var offset = 0
-                    while (true) {
-                        val page = archiveRepo.smsTable.page(offset, PAGE_SIZE)
-                        if (page.isEmpty()) break
+                    // 先把库里的系统 id 读出来，避免重复导入产生副本。
+                    // 用 forEachPage 而非 page()+isEmpty()：后者在「整页解密失败」时会误判结束，
+                    // 导致 known 不全、已导入的短信被当成新记录重复写入。
+                    archiveRepo.smsTable.forEachPage(PAGE_SIZE) { page ->
                         page.forEach { known.add(it.sourceSmsId) }
-                        offset += PAGE_SIZE
                     }
 
                     val sys = SystemSms.readAll(context)
@@ -1646,12 +1653,8 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
                 runCatching {
                     reportBusy(0, 0, context.getString(R.string.busy_phase_read_calls))
                     val known = HashSet<Long>()
-                    var offset = 0
-                    while (true) {
-                        val page = archiveRepo.callTable.page(offset, PAGE_SIZE)
-                        if (page.isEmpty()) break
+                    archiveRepo.callTable.forEachPage(PAGE_SIZE) { page ->
                         page.forEach { known.add(it.sourceCallId) }
-                        offset += PAGE_SIZE
                     }
 
                     val sys = SystemCallLog.readAll(context)
@@ -1746,7 +1749,6 @@ class ContactsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshCallState() {
         overlayAllowed = PermissionUtil.canDrawOverlays(context)
-        screeningRoleHeld = PermissionUtil.hasScreeningRole(context)
     }
 
     fun onCallServiceChanged(running: Boolean) {

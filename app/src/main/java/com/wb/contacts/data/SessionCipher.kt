@@ -81,9 +81,11 @@ class SessionCipher(context: Context) {
         }
         val raw = ByteArray(32).also { SecureRandom().nextBytes(it) }
         val wrapped = Crypto.encrypt(raw)
+        // 必须同步落盘：会话密钥一旦生成就立刻用于加密并写入数据库，
+        // apply() 是异步写盘，落盘前进程被杀会丢密钥 → 已写入的数据永久无法解密。
         prefs.edit()
             .putString(KEY_WRAPPED, Base64.encodeToString(wrapped, Base64.NO_WRAP))
-            .apply()
+            .commit()
         return SecretKeySpec(raw, "AES")
     }
 

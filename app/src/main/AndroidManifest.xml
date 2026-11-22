@@ -55,18 +55,26 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
 
-    <!-- 4. 来电识别悬浮窗：来电状态 + 悬浮窗 + 前台服务 + 通知 -->
+    <!--
+      来电识别：来电状态 + 悬浮窗 + 通知。
+
+      · READ_PHONE_STATE：PhoneStateListener 的前置条件，没有它连来电状态都收不到。
+      · READ_CALL_LOG（见上方通话记录）：Android 9 起，onCallStateChanged 里的
+        号码要求同时持有该权限，否则 phoneNumber 恒为 null，卡片就没有名字可对应。
+      · SYSTEM_ALERT_WINDOW：只用于「无障碍不可用时的解锁态兜底」和设置页的
+        卡片预览。锁屏卡片走无障碍浮层，用不到它。
+      · POST_NOTIFICATIONS：只用于备份 / 还原的进度通知。
+    -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
       备份 / 还原 / 清空期间的前台服务保活：
-      Android 14 起 dataSync 类型的 FGS 必须同时声明这个类型权限，
+      Android 14 起 dataSync 类型的 FGS 必须同时声明该类型权限，
       WAKE_LOCK 用来在熄屏后保持 CPU 运行（屏幕可以关，CPU 不能睡）。
     -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -187,16 +195,6 @@
             </intent-filter>
         </service>
 
-        <!-- 来电识别：系统级来电筛选服务（需用户授予「来电显示/骚扰拦截」角色） -->
-        <service
-            android:name=".call.CallScreeningServiceImpl"
-            android:exported="true"
-            android:permission="android.permission.BIND_SCREENING_SERVICE">
-            <intent-filter>
-                <action android:name="android.telecom.CallScreeningService" />
-            </intent-filter>
-        </service>
-
         <!--
           大批量备份 / 还原 / 清空的保活服务：前台优先级 + WakeLock + 进度通知。
           不是常驻服务，只在 busy 期间启动，任务结束即停止。
@@ -206,14 +204,30 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
-        <!-- 来电识别：前台服务，常驻监听通话状态并承载悬浮窗 -->
+        <!--
+          无障碍浮层：承载来电卡片（TYPE_ACCESSIBILITY_OVERLAY）。
+          解析见 CallAccessibilityService 注释——这是普通应用唯一能叠在
+          realme 全屏来电界面之上的窗口层级。不读取屏幕内容。
+
+          同时它是来电识别的唯一入口：服务连接后由 CallCardPresenter 自己监听
+          CALL_STATE_RINGING 并查加密索引，不依赖 Telecom 的来电筛选绑定
+          （2026-11-23 真机实证：realme 的 Telecom 经常根本不发起绑定）。
+
+          独立 :a11y 进程的目的：无障碍服务被系统常驻，而主进程可以完全退出，
+          两者互不牵连。
+        -->
         <service
-            android:name=".call.CallIdService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="caller_id_overlay" />
+            android:name=".call.CallAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:process=":a11y">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/call_accessibility_service" />
         </service>
 
     </application>

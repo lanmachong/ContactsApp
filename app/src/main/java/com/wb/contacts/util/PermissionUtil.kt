@@ -161,29 +161,43 @@ object PermissionUtil {
             true
         }
 
-    /** 悬浮窗权限：拨号界面之上弹卡片的前提 */
+    /**
+     * 悬浮窗权限（「显示在其他应用上层」）。
+     *
+     * 来电卡片的主路径是 TYPE_ACCESSIBILITY_OVERLAY，不需要它。
+     * 只有两种情况会用到：无障碍尚未开启时的解锁态兜底，以及设置页的卡片预览。
+     * 因此它不再作为开启来电识别的前置条件。
+     */
     fun canDrawOverlays(context: Context): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Settings.canDrawOverlays(context) else true
+
+    /**
+     * 无障碍服务是否已启用。
+     *
+     * 来电卡片要盖在厂商的全屏来电界面之上（realme 的 OplusInCallActivity 是特权窗口，
+     * 全屏 Activity 与 TYPE_APPLICATION_OVERLAY 都会被压住），只能借
+     * TYPE_ACCESSIBILITY_OVERLAY —— 那需要用户手动开启本应用的无障碍服务。
+     *
+     * 注意：不能查 [com.wb.contacts.call.CallAccessibilityService.instance]。
+     * 无障碍服务跑在 :a11y 进程，主进程里那个静态字段永远是 null，
+     * 所以必须读系统的已启用服务列表。
+     */
+    fun isAccessibilityEnabled(context: Context): Boolean {
+        val expected = "${context.packageName}/${context.packageName}.call.CallAccessibilityService"
+        val enabled = runCatching {
+            Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            )
+        }.getOrNull().orEmpty()
+        return enabled.split(':').any { it.equals(expected, ignoreCase = true) }
+    }
+
+    fun accessibilitySettingsIntent(): Intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
 
     fun overlaySettingsIntent(context: Context): Intent =
         Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             android.net.Uri.parse("package:${context.packageName}")
         )
-
-    /** Android 10+ 才需要「来电显示和骚扰拦截」角色 */
-    fun needsScreeningRole(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-
-    fun hasScreeningRole(context: Context): Boolean {
-        if (!needsScreeningRole()) return true
-        val manager = context.getSystemService(RoleManager::class.java) ?: return false
-        return manager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
-    }
-
-    fun screeningRoleIntent(context: Context): Intent? {
-        if (!needsScreeningRole()) return null
-        val manager = context.getSystemService(RoleManager::class.java) ?: return null
-        if (!manager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) return null
-        return manager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
-    }
 }

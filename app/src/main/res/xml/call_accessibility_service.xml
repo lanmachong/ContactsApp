@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  来电卡片无障碍服务配置。
+
+  唯一目的：拿到一个可以用 TYPE_ACCESSIBILITY_OVERLAY 添加窗口的上下文。
+  该窗口类型是普通应用唯一能叠在 realme 全屏来电界面之上的层级
+  （与 TalkBack 的高亮框同级）。
+
+  隐私：canRetrieveWindowContent=false —— 不申请读取屏幕内容的权限，
+  accessibilityEventTypes 仅保留窗口状态变化以满足系统校验，且代码里不处理任何事件。
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/accessibility_service_desc"
+    android:notificationTimeout="100" />

@@ -159,19 +159,19 @@
         <item quantity="other">Currently recognizing the numbers of %1$d contacts</item>
     </plurals>
     <string name="callsettings_toggle">Enable caller ID</string>
-    <string name="callsettings_toggle_on">The foreground service is running, and the overlay pops up automatically on incoming calls</string>
-    <string name="callsettings_toggle_off">Once enabled, a low-priority notification keeps the process alive so the system does not kill it</string>
-    <string name="callsettings_perm_overlay">Display over other apps</string>
-    <string name="callsettings_perm_overlay_desc">Required for the overlay window</string>
-    <string name="callsettings_perm_screening">Call display &amp; spam blocking</string>
-    <string name="callsettings_perm_screening_granted">Granted — the number is available the moment it rings</string>
-    <string name="callsettings_perm_screening_need">Android 10 and later require this role to read the incoming number</string>
+    <string name="callsettings_toggle_on">On — the avatar and name appear at the top of the screen on incoming calls</string>
+    <string name="callsettings_toggle_off">Off — no card is shown on incoming calls</string>
+    <string name="callsettings_perm_accessibility">Accessibility overlay</string>
+    <string name="callsettings_perm_accessibility_granted">Enabled — card shows on lock screen</string>
+    <string name="callsettings_perm_accessibility_need">Disabled — no card on lock screen</string>
+    <string name="callsettings_perm_overlay_optional">Display over other apps (optional)</string>
+    <string name="callsettings_perm_overlay_optional_desc">Only for fallback display when Accessibility is off, and for card preview</string>
     <string name="callsettings_perm_notification">Notification permission</string>
-    <string name="callsettings_perm_notification_desc">Used for the ongoing \"Caller ID enabled\" notification</string>
+    <string name="callsettings_perm_notification_desc">Used for backup / restore progress notifications</string>
     <string name="callsettings_perm_phone_state">Phone state permission</string>
-    <string name="callsettings_perm_phone_state_desc">Removes the overlay automatically after the call ends</string>
-    <string name="callsettings_preview">Preview the overlay</string>
-    <string name="callsettings_note">Note: this app only reads numbers for matching. It never records audio, never uploads anything, and never blocks calls. Turning the switch off stops both the foreground service and the overlay.</string>
+    <string name="callsettings_perm_phone_state_desc">Reads call state and removes the card automatically after the call ends</string>
+    <string name="callsettings_preview">Preview the card</string>
+    <string name="callsettings_note">Note: this app only reads numbers for matching. It never records audio, never uploads anything, and never blocks calls. The card is drawn by the app\'s own accessibility service, which does not read screen content. Turning the switch off stops the card entirely.</string>
 
     <!-- ==================== Contact detail ==================== -->
     <string name="detail_title">Contact</string>
@@ -623,7 +623,42 @@ There is no network permission, and no location, camera, microphone, or storage 
     <string name="work_notify_running">Preparing data, please keep the app open...</string>
     <string name="work_notify_progress">Processed %1$d / %2$d</string>
 
+    <string name="about_update_v1_8_8">v1.8.8</string>
+    <string name="about_update_v1_8_8_desc">Fixed paged reads skipping remaining records when one entry fails to decrypt; exported CSV files are now guarded against formula injection; session key is stored reliably so a crash cannot make data undecryptable; caller ID no longer blocks incoming calls; the caller overlay is now a compact top banner that does not cover answer/hang-up, auto-hides after 8 seconds, and hides contact notes on the lock screen</string>
+
     <string name="about_update_v1_8_7">v1.8.7</string>
     <string name="about_update_v1_8_7_desc">Backup, restore and clear now run under a foreground service with a CPU wake lock, so writing continues after the screen locks and progress stays visible in the notification; SMS restore uses batch inserts with batch verification, and contact import uses parallel encryption with a single database transaction</string>
+
+    <!-- ==================== v1.9.0 caller avatars ==================== -->
+    <string name="avatar_name_cat">Cat</string>
+    <string name="avatar_name_dog">Dog</string>
+    <string name="avatar_name_rabbit">Rabbit</string>
+    <string name="avatar_name_panda">Panda</string>
+    <string name="avatar_name_fox">Fox</string>
+    <string name="avatar_name_bear">Bear</string>
+    <string name="avatar_name_penguin">Penguin</string>
+    <string name="avatar_name_frog">Frog</string>
+    <string name="avatar_name_tiger">Tiger</string>
+    <string name="avatar_name_lion">Lion</string>
+    <string name="avatar_picker_title">Choose caller avatar</string>
+    <string name="avatar_picker_desc">Pick an animal for %1$s. Its avatar shows up on incoming calls so you know who is calling at a glance.</string>
+    <string name="detail_tap_avatar_hint">Tap the avatar to change</string>
+    <string name="toast_avatar_saved">Avatar updated</string>
+
+    <string name="accessibility_service_label">Contacts · Call card</string>
+    <string name="accessibility_service_desc">Shows the caller\'s avatar and name above the screen only when a call comes in. This service does not read, record, or upload anything shown on your screen.</string>
+
+    <string name="about_update_v1_9_5">v1.9.5</string>
+    <string name="about_update_v1_9_5_desc">Caller ID now listens on its own, so the lock-screen card shows reliably; the call-display role and the resident foreground service are gone, keeping permissions to the minimum required</string>
+    <string name="about_update_v1_9_4">v1.9.4</string>
+    <string name="about_update_v1_9_4_desc">Lock-screen call card now uses an accessibility overlay so it reliably stays above the system call UI; the accessibility service runs in its own resident process while caller ID keeps cold-starting each call; added an in-app accessibility self-check</string>
+    <string name="about_update_v1_9_3">v1.9.3</string>
+    <string name="about_update_v1_9_3_desc">Fixed the lock-screen call card being covered by the system call UI within 0.2s: the card now shows after the system UI is ready and re-asserts itself when covered</string>
+    <string name="about_update_v1_9_2">v1.9.2</string>
+    <string name="about_update_v1_9_2_desc">Fixed the lock-screen incoming-call card not showing (a window focus flag prevented the transparent card from drawing); the avatar and name now appear reliably both locked and unlocked.</string>
+    <string name="about_update_v1_9_1">v1.9.1</string>
+    <string name="about_update_v1_9_1_desc">Fixed an issue where the incoming-call card closed immediately on the lock screen; the card now shows only the avatar and name, and dismisses automatically when the call is answered or ends.</string>
+    <string name="about_update_v1_9_0">v1.9.0</string>
+    <string name="about_update_v1_9_0_desc">Caller ID now comes with 10 cute animal avatars: assigned automatically, changeable per contact, with a subtle breathing animation. Incoming calls use a lock-screen-visible page, so you see the avatar and name both locked and unlocked.</string>
 
 </resources>

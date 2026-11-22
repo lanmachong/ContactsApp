@@ -102,7 +102,11 @@ object CsvExporter {
     }
 
     private fun escape(value: String): String {
-        val text = value.replace("\"", "\"\"")
+        var text = value.replace("\"", "\"\"")
+        // 防 CSV 公式注入：短信正文、联系人姓名/备注都由外部输入控制，
+        // 以 = + - @ 开头的单元格会被 Excel/WPS 当公式执行（CWE-1236）。
+        // 前置单引号让表格软件按纯文本处理，不影响肉眼阅读。
+        if (text.isNotEmpty() && text.first() in "=+-@\t\r") text = "'$text"
         return if (text.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"$text\"" else text
     }
 }

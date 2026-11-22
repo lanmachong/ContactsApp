@@ -52,7 +52,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wb.contacts.R
-import com.wb.contacts.call.CallIdService
 import com.wb.contacts.call.CallOverlayController
 import com.wb.contacts.call.CallerIndex
 import com.wb.contacts.util.PermissionUtil
@@ -66,11 +65,7 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
     var tick by remember { mutableStateOf(0) }
     var enabled by remember { mutableStateOf(Prefs.isCallIdEnabled(context)) }
 
-    val overlayLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { tick++ }
-
-    val roleLauncher = rememberLauncherForActivityResult(
+    val settingsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { tick++ }
 
@@ -89,8 +84,8 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
     }
 
     val canOverlay = remember(tick) { PermissionUtil.canDrawOverlays(context) }
-    val hasRole = remember(tick) { PermissionUtil.hasScreeningRole(context) }
     val canNotify = remember(tick) { PermissionUtil.canNotify(context) }
+    val canA11y = remember(tick) { PermissionUtil.isAccessibilityEnabled(context) }
 
     Scaffold(
         topBar = {
@@ -165,19 +160,18 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
                 },
                 checked = enabled,
                 onCheckedChange = { on ->
-                    if (on && !canOverlay) {
-                        overlayLauncher.launch(PermissionUtil.overlaySettingsIntent(context))
+                    // 开启的前提从「悬浮窗权限」改成「无障碍已开启」。
+                    // 锁屏时厂商的全屏来电界面是特权窗口，普通 Activity 与
+                    // TYPE_APPLICATION_OVERLAY 都会被压下去，只有无障碍浮层能盖住；
+                    // 而且来电监听本身就挂在无障碍服务所在的 :a11y 进程上。
+                    if (on && !canA11y) {
+                        settingsLauncher.launch(PermissionUtil.accessibilitySettingsIntent())
                         return@ToggleRow
                     }
                     enabled = on
                     Prefs.setCallIdEnabled(context, on)
-                    if (on) {
-                        CallIdService.start(context)
-                        vm.onCallServiceChanged(true)
-                    } else {
-                        CallIdService.stop(context)
-                        vm.onCallServiceChanged(false)
-                    }
+                    if (!on) CallOverlayController.hide()
+                    vm.onCallServiceChanged(on)
                 }
             )
 
@@ -185,41 +179,19 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
             Spacer(Modifier.height(8.dp))
 
+            // 必需：唯一的可靠展示通道 + 来电号码来源
             PermissionRow(
-                title = stringResource(R.string.callsettings_perm_overlay),
-                subtitle = stringResource(R.string.callsettings_perm_overlay_desc),
-                granted = canOverlay,
-                onRequest = { overlayLauncher.launch(PermissionUtil.overlaySettingsIntent(context)) }
+                title = stringResource(R.string.callsettings_perm_accessibility),
+                subtitle = if (canA11y) {
+                    stringResource(R.string.callsettings_perm_accessibility_granted)
+                } else {
+                    stringResource(R.string.callsettings_perm_accessibility_need)
+                },
+                granted = canA11y,
+                onRequest = {
+                    settingsLauncher.launch(PermissionUtil.accessibilitySettingsIntent())
+                }
             )
-
-            if (PermissionUtil.needsScreeningRole()) {
-                PermissionRow(
-                    title = stringResource(R.string.callsettings_perm_screening),
-                    subtitle = if (hasRole) {
-                        stringResource(R.string.callsettings_perm_screening_granted)
-                    } else {
-                        stringResource(R.string.callsettings_perm_screening_need)
-                    },
-                    granted = hasRole,
-                    onRequest = {
-                        val intent = PermissionUtil.screeningRoleIntent(context)
-                        if (intent != null) {
-                            roleLauncher.launch(intent)
-                        } else {
-                            vm.onCallServiceChanged(true)
-                        }
-                    }
-                )
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                PermissionRow(
-                    title = stringResource(R.string.callsettings_perm_notification),
-                    subtitle = stringResource(R.string.callsettings_perm_notification_desc),
-                    granted = canNotify,
-                    onRequest = { notificationLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
-                )
-            }
 
             PermissionRow(
                 title = stringResource(R.string.callsettings_perm_phone_state),
@@ -230,12 +202,29 @@ fun CallSettingsScreen(vm: ContactsViewModel) {
                 }
             )
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                PermissionRow(
+                    title = stringResource(R.string.callsettings_perm_notification),
+                    subtitle = stringResource(R.string.callsettings_perm_notification_desc),
+                    granted = canNotify,
+                    onRequest = { notificationLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+                )
+            }
+
+            // 可选：只在无障碍未开启时兜底、以及下面的卡片预览时用到
+            PermissionRow(
+                title = stringResource(R.string.callsettings_perm_overlay_optional),
+                subtitle = stringResource(R.string.callsettings_perm_overlay_optional_desc),
+                granted = canOverlay,
+                onRequest = { settingsLauncher.launch(PermissionUtil.overlaySettingsIntent(context)) }
+            )
+
             Spacer(Modifier.height(20.dp))
 
             OutlinedButton(
                 onClick = {
                     if (!PermissionUtil.canDrawOverlays(context)) {
-                        overlayLauncher.launch(PermissionUtil.overlaySettingsIntent(context))
+                        settingsLauncher.launch(PermissionUtil.overlaySettingsIntent(context))
                         return@OutlinedButton
                     }
                     // 不用真的打电话也能验证悬浮窗效果

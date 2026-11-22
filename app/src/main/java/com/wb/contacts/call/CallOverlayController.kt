@@ -22,6 +22,8 @@ object CallOverlayController {
     }
 
     fun canDraw(context: Context): Boolean {
+        // 无障碍浮层不需要「显示在其他应用上层」权限，只看服务是否已连接
+        if (CallAccessibilityService.isReady()) return true
         init(context)
         return overlay?.canDraw() == true
     }

@@ -23,20 +23,11 @@ class MainActivity : ComponentActivity() {
     /** 悬浮窗点「查看」跳转过来时带上的联系人 id */
     private var pendingContactId by mutableStateOf<Long?>(null)
 
+    /** 通知权限只问一次，避免每次批量任务都弹 */
+    private var notificationAsked = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Android 13+ 不给通知权限的话，前台服务的进度通知不会进通知抽屉，
-        // 锁屏时用户就看不到「还剩多少」。保活本身不依赖它，但可见性依赖。
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                REQ_NOTIFICATIONS
-            )
-        }
         pendingContactId = readContactId(intent)
 
         setContent {
@@ -47,6 +38,9 @@ class MainActivity : ComponentActivity() {
                 // 用户手动锁屏 / 切后台时仍有 WorkGuardService + WakeLock 兜底。
                 val keepScreenOn = vm.busy
                 LaunchedEffect(keepScreenOn) {
+                    // 通知权限只在批量任务真正开跑时才要：此时用户能理解
+                    // 「需要通知」是因为要看进度。打开 App 就弹权限属于不必要的索要。
+                    if (keepScreenOn) ensureNotificationPermission()
                     if (keepScreenOn) {
                         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     } else {
@@ -76,6 +70,26 @@ class MainActivity : ComponentActivity() {
 
     private fun readContactId(intent: Intent?): Long? =
         intent?.getLongExtra(EXTRA_OPEN_CONTACT_ID, 0L)?.takeIf { it > 0L }
+
+    /**
+     * 批量导入 / 还原 / 清空正在运行时才索要通知权限。
+     *
+     * 没有这个权限，前台服务照样能跑（保活不依赖它），只是进度通知不进通知抽屉、
+     * 切到后台看不到还剩多少。所以它属于「体验增强」而非必需项，
+     * 不该在 App 一启动就打断用户。
+     */
+    private fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (notificationAsked) return
+        notificationAsked = true
+        if (ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFICATIONS)
+    }
 
     companion object {
         const val EXTRA_OPEN_CONTACT_ID = "extra_open_contact_id"
